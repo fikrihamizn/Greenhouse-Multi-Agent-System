@@ -1,34 +1,94 @@
-import React from 'react';
-import { Sliders, Cpu, Power, Droplet, Wind, Sun } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Sliders, Cpu, Wifi, Terminal, RefreshCw, Layers } from 'lucide-react';
 
 export default function IoTSimulator({ sensors, actuators, targets, onUpdateSensors, onToggleActuator }) {
-  
+  const [consoleLogs, setConsoleLogs] = useState([
+    "🤖 Zentra Flora ESP32 Bootloader v1.0.4 commencing...",
+    "🔑 Loading local secure environmental variables...",
+    "📡 SSID found: [Zentra_Flora_5G]",
+    "📶 WiFi RSSI Signal: -58 dBm (Strong)",
+    "🟢 Connected successfully! IP Allocated: 192.168.1.142",
+    "🔌 Establishing FastAPI WebSockets gateway link...",
+    "🚀 Handshake verified at http://localhost:8000/api",
+    "🌿 Sensor diagnostics: All systems operating within normal parameters."
+  ]);
+  const consoleEndRef = useRef(null);
+
   const handleSliderChange = (metric, value) => {
     const newReadings = {
-      temperature: sensors.temperature,
-      humidity: sensors.humidity,
-      light: sensors.light,
-      soil_moisture: sensors.soil_moisture,
+      ...sensors,
       [metric]: parseFloat(value)
     };
     onUpdateSensors(newReadings);
+    
+    // Add real-time telemetry adjustment line to mock IDE console
+    const formattedMetric = metric.replace('_', ' ').toUpperCase();
+    logConsole(`[TELEMETRY] Sensor ${formattedMetric} calibrated to: ${value}`);
   };
 
-  const getStatusColor = (active) => active ? '#7C3AED' : '#94A3B8';
+  const logConsole = (message) => {
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setConsoleLogs(prev => [...prev, `[${time}] ${message}`]);
+  };
+
+  // Auto-scroll terminal log console
+  useEffect(() => {
+    if (consoleEndRef.current) {
+      consoleEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [consoleLogs]);
+
+  // Generate dynamic runtime events to simulate a live active Arduino IDE
+  useEffect(() => {
+    const intervals = [
+      "📶 RSSI signal check: -59 dBm | WiFi connection stable",
+      "📤 Pushing raw telemetry matrices to Supabase database relations...",
+      `🤖 Multi-Agent AI query: Evaluating ${sensors.soil_moisture}% soil moisture bounds`,
+      "📥 MQTT subscription: Listening on channels [/zentra/grow/actuators]",
+      `⚙️ Hardware telemetry: Core Temp ${sensors.temperature}°C | Humidity ${sensors.humidity}%`
+    ];
+
+    const interval = setInterval(() => {
+      const randomMsg = intervals[Math.floor(Math.random() * intervals.length)];
+      logConsole(randomMsg);
+    }, 9000);
+
+    return () => clearInterval(interval);
+  }, [sensors]);
+
+  // Track actuator overrides inside mock console
+  useEffect(() => {
+    logConsole(`[ACTUATOR OVERRIDE] Grow lights toggled: ${actuators.grow_lights ? 'HIGH (ON)' : 'LOW (OFF)'}`);
+  }, [actuators.grow_lights]);
+
+  useEffect(() => {
+    logConsole(`[ACTUATOR OVERRIDE] Ventilation fan speed: ${actuators.fan ? 'HIGH (ON)' : 'LOW (OFF)'}`);
+  }, [actuators.fan]);
+
+  useEffect(() => {
+    logConsole(`[ACTUATOR OVERRIDE] Water pump irrigation: ${actuators.pump ? 'HIGH (ON)' : 'LOW (OFF)'}`);
+  }, [actuators.pump]);
 
   return (
     <div style={styles.card}>
       <div style={styles.header}>
-        <h3 style={styles.title}>Smart Hardware IoT Simulator</h3>
-        <span style={styles.subtitle}>Simulate incoming environmental readings and control actuators</span>
+        <div style={styles.titleRow}>
+          <div style={styles.iconCircle}>
+            <Cpu size={18} color="var(--color-primary)" />
+          </div>
+          <div>
+            <h3 style={styles.title}>IoT Node Control & Arduino Console</h3>
+            <span style={styles.subtitle}>Simulate hardware core and compile local firmware commands</span>
+          </div>
+        </div>
       </div>
 
       <div style={styles.simulatorGrid}>
         {/* Sliders Column */}
         <div style={styles.slidersCol}>
           <div style={styles.panelTitleRow}>
-            <Sliders size={14} color="#7C3AED" />
-            <span style={styles.panelTitle}>Incoming IoT Sensor Sliders</span>
+            <Sliders size={14} color="var(--color-primary)" />
+            <span style={styles.panelTitle}>Calibrate Telemetry Sliders</span>
           </div>
 
           <div style={styles.sliderList}>
@@ -47,7 +107,11 @@ export default function IoTSimulator({ sensors, actuators, targets, onUpdateSens
                 onChange={(e) => handleSliderChange('temperature', e.target.value)}
                 style={styles.rangeInput}
               />
-              <span style={styles.rangeLabels}>10°C (Cold) <span>Target: {targets.min_temp}-{targets.max_temp}°C</span> 45°C (Hot)</span>
+              <div style={styles.rangeLabels}>
+                <span>10°C</span>
+                <span>Ideal: {targets.min_temp}-{targets.max_temp}°C</span>
+                <span>45°C</span>
+              </div>
             </div>
 
             {/* Humidity Slider */}
@@ -65,7 +129,11 @@ export default function IoTSimulator({ sensors, actuators, targets, onUpdateSens
                 onChange={(e) => handleSliderChange('humidity', e.target.value)}
                 style={styles.rangeInput}
               />
-              <span style={styles.rangeLabels}>20% (Dry) <span>Target: {targets.min_humidity}-{targets.max_humidity}%</span> 99% (Saturated)</span>
+              <div style={styles.rangeLabels}>
+                <span>20%</span>
+                <span>Ideal: {targets.min_humidity}-{targets.max_humidity}%</span>
+                <span>99%</span>
+              </div>
             </div>
 
             {/* Soil Moisture Slider */}
@@ -83,7 +151,11 @@ export default function IoTSimulator({ sensors, actuators, targets, onUpdateSens
                 onChange={(e) => handleSliderChange('soil_moisture', e.target.value)}
                 style={styles.rangeInput}
               />
-              <span style={styles.rangeLabels}>10% (Arid) <span>Target: {targets.min_soil_moisture}-{targets.max_soil_moisture}%</span> 90% (Flooded)</span>
+              <div style={styles.rangeLabels}>
+                <span>10%</span>
+                <span>Ideal: {targets.min_soil_moisture}-{targets.max_soil_moisture}%</span>
+                <span>90%</span>
+              </div>
             </div>
 
             {/* Light Slider */}
@@ -101,105 +173,63 @@ export default function IoTSimulator({ sensors, actuators, targets, onUpdateSens
                 onChange={(e) => handleSliderChange('light', e.target.value)}
                 style={styles.rangeInput}
               />
-              <span style={styles.rangeLabels}>50 Lux (Shade) <span>Target: {targets.min_light}-{targets.max_light} Lux</span> 1200 Lux (Sun)</span>
+              <div style={styles.rangeLabels}>
+                <span>50 lx</span>
+                <span>Ideal: {targets.min_light}-{targets.max_light} Lux</span>
+                <span>1200 lx</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Actuators Column */}
-        <div style={styles.actuatorsCol}>
+        {/* Arduino IDE Terminal Column */}
+        <div style={styles.ideCol}>
           <div style={styles.panelTitleRow}>
-            <Cpu size={14} color="#7C3AED" />
-            <span style={styles.panelTitle}>Actuators override (Control Agent)</span>
+            <Terminal size={14} color="var(--color-primary)" />
+            <span style={styles.panelTitle}>Arduino IDE Live Stream Logs</span>
+            <button 
+              onClick={() => {
+                setConsoleLogs(prev => [...prev, `[RESET] Reloading Arduino firmware flash commands...`]);
+                logConsole("Reconnected to serial monitor.");
+              }}
+              style={styles.refreshBtn}
+              title="Reset Serial Monitor"
+            >
+              <RefreshCw size={11} color="var(--color-text-muted)" />
+            </button>
           </div>
 
-          <div style={styles.actuatorList}>
-            {/* Water Pump */}
-            <div style={{
-              ...styles.actuatorCard,
-              borderColor: actuators.pump ? 'var(--color-primary-medium)' : 'var(--color-border)',
-              backgroundColor: actuators.pump ? 'var(--color-primary-light)' : 'var(--color-bg-card)'
-            }}>
-              <div style={{ ...styles.actuatorIconCircle, backgroundColor: actuators.pump ? 'var(--color-primary-light)' : 'var(--color-bg-base)' }}>
-                <Droplet size={18} color={actuators.pump ? 'var(--color-primary)' : 'var(--color-text-muted)'} />
-              </div>
-              <div style={styles.actuatorDetails}>
-                <span style={styles.actuatorName}>Water Pump</span>
-                <span style={{ 
-                  ...styles.actuatorStatus, 
-                  color: actuators.pump ? 'var(--color-primary)' : 'var(--color-text-muted)' 
-                }}>
-                  {actuators.pump ? 'Irrigating Soil' : 'Inactive'}
-                </span>
-              </div>
-              <button 
-                onClick={() => onToggleActuator('pump', !actuators.pump)}
-                style={{
-                  ...styles.toggleBtn,
-                  backgroundColor: actuators.pump ? 'var(--color-primary)' : 'var(--color-bg-base)'
-                }}
-              >
-                <Power size={14} color={actuators.pump ? '#FFFFFF' : 'var(--color-text-body)'} />
-              </button>
+          {/* Microcontroller Hardware Stats Header */}
+          <div style={styles.hardwareSpecsCard}>
+            <div style={styles.specItem}>
+              <Cpu size={12} color="var(--color-primary)" />
+              <span>Chip: <strong>ESP32-S3 WROOM</strong></span>
             </div>
+            <div style={styles.specItem}>
+              <Layers size={12} color="var(--color-success)" />
+              <span>RAM: <strong>192 KB / 320 KB</strong></span>
+            </div>
+            <div style={styles.specItem}>
+              <Wifi size={12} color="#38BDF8" />
+              <span>WiFi: <strong>Strong (-58dBm)</strong></span>
+            </div>
+          </div>
 
-            {/* Exhaust Fan */}
-            <div style={{
-              ...styles.actuatorCard,
-              borderColor: actuators.fan ? 'var(--color-primary-medium)' : 'var(--color-border)',
-              backgroundColor: actuators.fan ? 'var(--color-primary-light)' : 'var(--color-bg-card)'
-            }}>
-              <div style={{ ...styles.actuatorIconCircle, backgroundColor: actuators.fan ? 'var(--color-primary-light)' : 'var(--color-bg-base)' }}>
-                <Wind size={18} color={actuators.fan ? 'var(--color-primary)' : 'var(--color-text-muted)'} />
-              </div>
-              <div style={styles.actuatorDetails}>
-                <span style={styles.actuatorName}>Exhaust Fan</span>
-                <span style={{ 
-                  ...styles.actuatorStatus, 
-                  color: actuators.fan ? 'var(--color-primary)' : 'var(--color-text-muted)' 
-                }}>
-                  {actuators.fan ? 'Ventilating / Cooling' : 'Inactive'}
-                </span>
-              </div>
-              <button 
-                onClick={() => onToggleActuator('fan', !actuators.fan)}
-                style={{
-                  ...styles.toggleBtn,
-                  backgroundColor: actuators.fan ? 'var(--color-primary)' : 'var(--color-bg-base)'
-                }}
-              >
-                <Power size={14} color={actuators.fan ? '#FFFFFF' : 'var(--color-text-body)'} />
-              </button>
-            </div>
+          {/* Scrolling Code Console */}
+          <div className="arduino-console">
+            {consoleLogs.map((log, idx) => {
+              let classColor = "";
+              if (log.includes("[ERROR]") || log.includes("[RESET]")) classColor = "console-line-yellow";
+              else if (log.includes("[SUCCESS]") || log.includes("Connected")) classColor = "console-line-green";
+              else if (log.includes("[TELEMETRY]")) classColor = "console-line-purple";
 
-            {/* Grow Lights */}
-            <div style={{
-              ...styles.actuatorCard,
-              borderColor: actuators.grow_lights ? 'var(--color-primary-medium)' : 'var(--color-border)',
-              backgroundColor: actuators.grow_lights ? 'var(--color-primary-light)' : 'var(--color-bg-card)'
-            }}>
-              <div style={{ ...styles.actuatorIconCircle, backgroundColor: actuators.grow_lights ? 'var(--color-primary-light)' : 'var(--color-bg-base)' }}>
-                <Sun size={18} color={actuators.grow_lights ? 'var(--color-primary)' : 'var(--color-text-muted)'} />
-              </div>
-              <div style={styles.actuatorDetails}>
-                <span style={styles.actuatorName}>Grow Lights</span>
-                <span style={{ 
-                  ...styles.actuatorStatus, 
-                  color: actuators.grow_lights ? 'var(--color-primary)' : 'var(--color-text-muted)' 
-                }}>
-                  {actuators.grow_lights ? 'Full Spectrum Active' : 'Inactive'}
-                </span>
-              </div>
-              <button 
-                onClick={() => onToggleActuator('grow_lights', !actuators.grow_lights)}
-                style={{
-                  ...styles.toggleBtn,
-                  backgroundColor: actuators.grow_lights ? 'var(--color-primary)' : 'var(--color-bg-base)'
-                }}
-              >
-                <Power size={14} color={actuators.grow_lights ? '#FFFFFF' : 'var(--color-text-body)'} />
-              </button>
-            </div>
+              return (
+                <div key={idx} className={classColor} style={{ marginBottom: '4px' }}>
+                  {log}
+                </div>
+              );
+            })}
+            <div ref={consoleEndRef} className="console-blink-cursor" />
           </div>
         </div>
       </div>
@@ -211,22 +241,34 @@ const styles = {
   card: {
     backgroundColor: 'var(--color-bg-card)',
     border: '1px solid var(--color-border)',
-    borderRadius: '20px',
+    borderRadius: '24px',
     padding: '24px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.01)',
+    boxShadow: 'var(--shadow-lg)',
     transition: 'background-color 0.2s, border 0.2s'
   },
   header: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
     marginBottom: '20px'
+  },
+  titleRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px'
+  },
+  iconCircle: {
+    width: '38px',
+    height: '38px',
+    borderRadius: '12px',
+    backgroundColor: 'var(--color-primary-light)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'background-color 0.2s'
   },
   title: {
     fontSize: '16px',
-    fontWeight: '700',
+    fontWeight: '800',
     color: 'var(--color-text-title)',
-    fontFamily: "'Outfit', sans-serif",
+    fontFamily: 'var(--font-display)',
     transition: 'color 0.2s'
   },
   subtitle: {
@@ -241,13 +283,13 @@ const styles = {
     flexWrap: 'wrap'
   },
   slidersCol: {
-    flex: '1.2 1 300px',
+    flex: '1 1 300px',
     display: 'flex',
     flexDirection: 'column',
     gap: '14px'
   },
-  actuatorsCol: {
-    flex: '1 1 260px',
+  ideCol: {
+    flex: '1.2 1 340px',
     display: 'flex',
     flexDirection: 'column',
     gap: '14px'
@@ -258,6 +300,7 @@ const styles = {
     gap: '8px',
     paddingBottom: '8px',
     borderBottom: '1px solid var(--color-border)',
+    position: 'relative',
     transition: 'border 0.2s'
   },
   panelTitle: {
@@ -268,6 +311,20 @@ const styles = {
     letterSpacing: '0.5px',
     transition: 'color 0.2s'
   },
+  refreshBtn: {
+    position: 'absolute',
+    right: 0,
+    top: '-4px',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '24px',
+    height: '24px',
+    borderRadius: '50%'
+  },
   sliderList: {
     display: 'flex',
     flexDirection: 'column',
@@ -276,7 +333,7 @@ const styles = {
   sliderGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '6px'
+    gap: '4px'
   },
   sliderHeader: {
     display: 'flex',
@@ -311,57 +368,20 @@ const styles = {
     fontWeight: '600',
     transition: 'color 0.2s'
   },
-  actuatorList: {
+  hardwareSpecsCard: {
     display: 'flex',
-    flexDirection: 'column',
-    gap: '10px'
-  },
-  actuatorCard: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '12px 14px',
-    border: '1px solid',
+    justifyContent: 'space-between',
+    backgroundColor: 'var(--color-bg-base)',
     borderRadius: '14px',
-    gap: '12px',
-    transition: 'all 0.2s'
+    padding: '12px 14px',
+    border: '1px solid var(--color-border)',
+    transition: 'background-color 0.2s, border 0.2s'
   },
-  actuatorIconCircle: {
-    width: '36px',
-    height: '36px',
-    borderRadius: '10px',
+  specItem: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    transition: 'all 0.2s'
-  },
-  actuatorDetails: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2px',
-    flex: 1
-  },
-  actuatorName: {
-    fontSize: '13px',
-    fontWeight: '700',
-    color: 'var(--color-text-title)',
-    transition: 'color 0.2s'
-  },
-  actuatorStatus: {
+    gap: '6px',
     fontSize: '11px',
-    fontWeight: '600',
-    transition: 'color 0.2s'
-  },
-  toggleBtn: {
-    width: '32px',
-    height: '32px',
-    borderRadius: '8px',
-    border: 'none',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
-    transition: 'all 0.2s'
+    color: 'var(--color-text-body)'
   }
 };

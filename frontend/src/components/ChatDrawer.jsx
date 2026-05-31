@@ -165,21 +165,23 @@ export default function ChatDrawer({ chatHistory, alertsHistory, onSendChatMessa
 
 const styles = {
   card: {
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #E2E8F0',
+    backgroundColor: 'var(--color-bg-card)',
+    border: '1px solid var(--color-border)',
     borderRadius: '20px',
     padding: '20px',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.01)',
     display: 'flex',
     flexDirection: 'column',
-    height: '420px'
+    height: '420px',
+    transition: 'background-color 0.2s, border 0.2s'
   },
   tabRow: {
     display: 'flex',
     gap: '8px',
-    borderBottom: '1px solid #F1F5F9',
-    paddingBottom: '12px',
-    marginBottom: '12px'
+    borderBottom: '1px solid var(--color-border)',
+    padding: 'bottom 12px',
+    marginBottom: '12px',
+    transition: 'border 0.2s'
   },
   paneBtn: {
     display: 'flex',
@@ -189,15 +191,15 @@ const styles = {
     border: 'none',
     borderRadius: '10px',
     backgroundColor: 'transparent',
-    color: '#64748B',
+    color: 'var(--color-text-muted)',
     fontSize: '12px',
     fontWeight: '600',
     cursor: 'pointer',
-    transition: 'all 0.15s ease'
+    transition: 'all 0.2s'
   },
   paneBtnActive: {
-    backgroundColor: '#F5F3FF',
-    color: '#7C3AED'
+    backgroundColor: 'var(--color-primary-light)',
+    color: 'var(--color-primary)'
   },
   chatWrapper: {
     display: 'flex',
@@ -236,24 +238,27 @@ const styles = {
   senderLabel: {
     fontSize: '9px',
     fontWeight: '700',
-    color: '#94A3B8',
-    textTransform: 'uppercase'
+    color: 'var(--color-text-muted)',
+    textTransform: 'uppercase',
+    transition: 'color 0.2s'
   },
   userBubble: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: 'var(--color-primary)',
     borderRadius: '14px 14px 2px 14px',
     padding: '10px 14px'
   },
   botBubble: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'var(--color-bg-base)',
     borderRadius: '14px 14px 14px 2px',
-    padding: '10px 14px'
+    padding: '10px 14px',
+    transition: 'background-color 0.2s'
   },
   sysBubble: {
-    backgroundColor: '#FEF3C7',
-    border: '1px solid #FDE68A',
+    backgroundColor: 'var(--color-warning-light)',
+    border: '1px solid var(--color-warning)',
     borderRadius: '10px',
-    padding: '6px 12px'
+    padding: '6px 12px',
+    transition: 'all 0.2s'
   },
   msgText: {
     fontSize: '12.5px',
@@ -264,16 +269,19 @@ const styles = {
     color: '#FFFFFF'
   },
   botText: {
-    color: '#334155'
+    color: 'var(--color-text-body)',
+    transition: 'color 0.2s'
   },
   sysText: {
-    color: '#D97706',
+    color: 'var(--color-warning)',
     fontSize: '11px',
-    fontWeight: '600'
+    fontWeight: '600',
+    transition: 'color 0.2s'
   },
   timestamp: {
     fontSize: '9px',
-    color: '#94A3B8'
+    color: 'var(--color-text-muted)',
+    transition: 'color 0.2s'
   },
   suggestions: {
     display: 'flex',
@@ -284,14 +292,15 @@ const styles = {
   },
   sugBtn: {
     padding: '4px 10px',
-    backgroundColor: '#F8FAFC',
-    border: '1px solid #E2E8F0',
+    backgroundColor: 'var(--color-bg-base)',
+    border: '1px solid var(--color-border)',
     borderRadius: '6px',
-    color: '#64748B',
+    color: 'var(--color-text-muted)',
     fontSize: '11px',
     fontWeight: '600',
     cursor: 'pointer',
-    flexShrink: 0
+    flexShrink: 0,
+    transition: 'all 0.2s'
   },
   inputForm: {
     display: 'flex',
@@ -301,26 +310,28 @@ const styles = {
   chatInput: {
     flex: 1,
     height: '38px',
-    backgroundColor: '#F8FAFC',
-    border: '1px solid #E2E8F0',
+    backgroundColor: 'var(--color-bg-base)',
+    border: '1px solid var(--color-border)',
     borderRadius: '10px',
     padding: '0 12px',
     fontSize: '12px',
     fontWeight: '500',
     outline: 'none',
-    color: '#334155'
+    color: 'var(--color-text-body)',
+    transition: 'all 0.2s'
   },
   sendBtn: {
     width: '38px',
     height: '38px',
     borderRadius: '10px',
-    backgroundColor: '#7C3AED',
+    backgroundColor: 'var(--color-primary)',
     border: 'none',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
-    boxShadow: '0 2px 6px rgba(124,58,237,0.2)'
+    boxShadow: '0 2px 6px rgba(124,58,237,0.2)',
+    transition: 'all 0.2s'
   },
   alertsWrapper: {
     display: 'flex',
@@ -337,9 +348,10 @@ const styles = {
     display: 'flex',
     gap: '12px',
     padding: '12px',
-    border: '1px solid #F1F5F9',
+    border: '1px solid var(--color-border)',
     borderRadius: '14px',
-    backgroundColor: '#FCFCFD'
+    backgroundColor: 'var(--color-bg-base)',
+    transition: 'all 0.2s'
   },
   alertIconCircle: {
     width: '28px',
@@ -364,16 +376,19 @@ const styles = {
   alertSubject: {
     fontSize: '12px',
     fontWeight: '700',
-    color: '#0F172A'
+    color: 'var(--color-text-title)',
+    transition: 'color 0.2s'
   },
   alertTime: {
     fontSize: '9px',
-    color: '#94A3B8'
+    color: 'var(--color-text-muted)',
+    transition: 'color 0.2s'
   },
   alertBody: {
     fontSize: '11px',
-    color: '#475569',
-    lineHeight: '1.4'
+    color: 'var(--color-text-body)',
+    lineHeight: '1.4',
+    transition: 'color 0.2s'
   },
   alertTypeTag: {
     fontSize: '9px',
@@ -394,12 +409,14 @@ const styles = {
   emptyAlertsTitle: {
     fontSize: '13px',
     fontWeight: '700',
-    color: '#475569',
-    fontFamily: "'Outfit', sans-serif"
+    color: 'var(--color-text-body)',
+    fontFamily: "'Outfit', sans-serif",
+    transition: 'color 0.2s'
   },
   emptyAlertsDesc: {
     fontSize: '10.5px',
-    color: '#94A3B8',
-    lineHeight: '1.4'
+    color: 'var(--color-text-muted)',
+    lineHeight: '1.4',
+    transition: 'color 0.2s'
   }
 };

@@ -117,17 +117,17 @@ export default function IoTSimulator({ sensors, actuators, targets, onUpdateSens
             {/* Water Pump */}
             <div style={{
               ...styles.actuatorCard,
-              borderColor: actuators.pump ? '#D8B4FE' : '#E2E8F0',
-              backgroundColor: actuators.pump ? '#FAF5FF' : '#FFFFFF'
+              borderColor: actuators.pump ? 'var(--color-primary-medium)' : 'var(--color-border)',
+              backgroundColor: actuators.pump ? 'var(--color-primary-light)' : 'var(--color-bg-card)'
             }}>
-              <div style={{ ...styles.actuatorIconCircle, backgroundColor: actuators.pump ? '#F5F3FF' : '#F8FAFC' }}>
-                <Droplet size={18} color={actuators.pump ? '#7C3AED' : '#64748B'} />
+              <div style={{ ...styles.actuatorIconCircle, backgroundColor: actuators.pump ? 'var(--color-primary-light)' : 'var(--color-bg-base)' }}>
+                <Droplet size={18} color={actuators.pump ? 'var(--color-primary)' : 'var(--color-text-muted)'} />
               </div>
               <div style={styles.actuatorDetails}>
                 <span style={styles.actuatorName}>Water Pump</span>
                 <span style={{ 
                   ...styles.actuatorStatus, 
-                  color: actuators.pump ? '#7C3AED' : '#64748B' 
+                  color: actuators.pump ? 'var(--color-primary)' : 'var(--color-text-muted)' 
                 }}>
                   {actuators.pump ? 'Irrigating Soil' : 'Inactive'}
                 </span>
@@ -136,27 +136,27 @@ export default function IoTSimulator({ sensors, actuators, targets, onUpdateSens
                 onClick={() => onToggleActuator('pump', !actuators.pump)}
                 style={{
                   ...styles.toggleBtn,
-                  backgroundColor: actuators.pump ? '#7C3AED' : '#F1F5F9'
+                  backgroundColor: actuators.pump ? 'var(--color-primary)' : 'var(--color-bg-base)'
                 }}
               >
-                <Power size={14} color={actuators.pump ? '#FFFFFF' : '#475569'} />
+                <Power size={14} color={actuators.pump ? '#FFFFFF' : 'var(--color-text-body)'} />
               </button>
             </div>
 
             {/* Exhaust Fan */}
             <div style={{
               ...styles.actuatorCard,
-              borderColor: actuators.fan ? '#D8B4FE' : '#E2E8F0',
-              backgroundColor: actuators.fan ? '#FAF5FF' : '#FFFFFF'
+              borderColor: actuators.fan ? 'var(--color-primary-medium)' : 'var(--color-border)',
+              backgroundColor: actuators.fan ? 'var(--color-primary-light)' : 'var(--color-bg-card)'
             }}>
-              <div style={{ ...styles.actuatorIconCircle, backgroundColor: actuators.fan ? '#F5F3FF' : '#F8FAFC' }}>
-                <Wind size={18} color={actuators.fan ? '#7C3AED' : '#64748B'} />
+              <div style={{ ...styles.actuatorIconCircle, backgroundColor: actuators.fan ? 'var(--color-primary-light)' : 'var(--color-bg-base)' }}>
+                <Wind size={18} color={actuators.fan ? 'var(--color-primary)' : 'var(--color-text-muted)'} />
               </div>
               <div style={styles.actuatorDetails}>
                 <span style={styles.actuatorName}>Exhaust Fan</span>
                 <span style={{ 
                   ...styles.actuatorStatus, 
-                  color: actuators.fan ? '#7C3AED' : '#64748B' 
+                  color: actuators.fan ? 'var(--color-primary)' : 'var(--color-text-muted)' 
                 }}>
                   {actuators.fan ? 'Ventilating / Cooling' : 'Inactive'}
                 </span>
@@ -165,27 +165,27 @@ export default function IoTSimulator({ sensors, actuators, targets, onUpdateSens
                 onClick={() => onToggleActuator('fan', !actuators.fan)}
                 style={{
                   ...styles.toggleBtn,
-                  backgroundColor: actuators.fan ? '#7C3AED' : '#F1F5F9'
+                  backgroundColor: actuators.fan ? 'var(--color-primary)' : 'var(--color-bg-base)'
                 }}
               >
-                <Power size={14} color={actuators.fan ? '#FFFFFF' : '#475569'} />
+                <Power size={14} color={actuators.fan ? '#FFFFFF' : 'var(--color-text-body)'} />
               </button>
             </div>
 
             {/* Grow Lights */}
             <div style={{
               ...styles.actuatorCard,
-              borderColor: actuators.grow_lights ? '#D8B4FE' : '#E2E8F0',
-              backgroundColor: actuators.grow_lights ? '#FAF5FF' : '#FFFFFF'
+              borderColor: actuators.grow_lights ? 'var(--color-primary-medium)' : 'var(--color-border)',
+              backgroundColor: actuators.grow_lights ? 'var(--color-primary-light)' : 'var(--color-bg-card)'
             }}>
-              <div style={{ ...styles.actuatorIconCircle, backgroundColor: actuators.grow_lights ? '#F5F3FF' : '#F8FAFC' }}>
-                <Sun size={18} color={actuators.grow_lights ? '#7C3AED' : '#64748B'} />
+              <div style={{ ...styles.actuatorIconCircle, backgroundColor: actuators.grow_lights ? 'var(--color-primary-light)' : 'var(--color-bg-base)' }}>
+                <Sun size={18} color={actuators.grow_lights ? 'var(--color-primary)' : 'var(--color-text-muted)'} />
               </div>
               <div style={styles.actuatorDetails}>
                 <span style={styles.actuatorName}>Grow Lights</span>
                 <span style={{ 
                   ...styles.actuatorStatus, 
-                  color: actuators.grow_lights ? '#7C3AED' : '#64748B' 
+                  color: actuators.grow_lights ? 'var(--color-primary)' : 'var(--color-text-muted)' 
                 }}>
                   {actuators.grow_lights ? 'Full Spectrum Active' : 'Inactive'}
                 </span>
@@ -194,10 +194,10 @@ export default function IoTSimulator({ sensors, actuators, targets, onUpdateSens
                 onClick={() => onToggleActuator('grow_lights', !actuators.grow_lights)}
                 style={{
                   ...styles.toggleBtn,
-                  backgroundColor: actuators.grow_lights ? '#7C3AED' : '#F1F5F9'
+                  backgroundColor: actuators.grow_lights ? 'var(--color-primary)' : 'var(--color-bg-base)'
                 }}
               >
-                <Power size={14} color={actuators.grow_lights ? '#FFFFFF' : '#475569'} />
+                <Power size={14} color={actuators.grow_lights ? '#FFFFFF' : 'var(--color-text-body)'} />
               </button>
             </div>
           </div>
@@ -209,11 +209,12 @@ export default function IoTSimulator({ sensors, actuators, targets, onUpdateSens
 
 const styles = {
   card: {
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #E2E8F0',
+    backgroundColor: 'var(--color-bg-card)',
+    border: '1px solid var(--color-border)',
     borderRadius: '20px',
     padding: '24px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.01)'
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.01)',
+    transition: 'background-color 0.2s, border 0.2s'
   },
   header: {
     display: 'flex',
@@ -224,13 +225,15 @@ const styles = {
   title: {
     fontSize: '16px',
     fontWeight: '700',
-    color: '#0F172A',
-    fontFamily: "'Outfit', sans-serif"
+    color: 'var(--color-text-title)',
+    fontFamily: "'Outfit', sans-serif",
+    transition: 'color 0.2s'
   },
   subtitle: {
     fontSize: '11px',
-    color: '#94A3B8',
-    fontWeight: '500'
+    color: 'var(--color-text-muted)',
+    fontWeight: '500',
+    transition: 'color 0.2s'
   },
   simulatorGrid: {
     display: 'flex',
@@ -254,14 +257,16 @@ const styles = {
     alignItems: 'center',
     gap: '8px',
     paddingBottom: '8px',
-    borderBottom: '1px solid #F1F5F9'
+    borderBottom: '1px solid var(--color-border)',
+    transition: 'border 0.2s'
   },
   panelTitle: {
     fontSize: '12px',
     fontWeight: '700',
-    color: '#475569',
+    color: 'var(--color-text-body)',
     textTransform: 'uppercase',
-    letterSpacing: '0.5px'
+    letterSpacing: '0.5px',
+    transition: 'color 0.2s'
   },
   sliderList: {
     display: 'flex',
@@ -280,27 +285,31 @@ const styles = {
     fontWeight: '700'
   },
   sliderName: {
-    color: '#475569'
+    color: 'var(--color-text-body)',
+    transition: 'color 0.2s'
   },
   sliderValue: {
-    color: '#7C3AED'
+    color: 'var(--color-primary)',
+    transition: 'color 0.2s'
   },
   rangeInput: {
     width: '100%',
     cursor: 'pointer',
-    accentColor: '#7C3AED',
+    accentColor: 'var(--color-primary)',
     height: '6px',
     borderRadius: '10px',
-    backgroundColor: '#E2E8F0',
+    backgroundColor: 'var(--color-bg-base)',
     border: 'none',
-    outline: 'none'
+    outline: 'none',
+    transition: 'background-color 0.2s'
   },
   rangeLabels: {
     display: 'flex',
     justifyContent: 'space-between',
     fontSize: '9px',
-    color: '#94A3B8',
-    fontWeight: '600'
+    color: 'var(--color-text-muted)',
+    fontWeight: '600',
+    transition: 'color 0.2s'
   },
   actuatorList: {
     display: 'flex',
@@ -314,7 +323,7 @@ const styles = {
     border: '1px solid',
     borderRadius: '14px',
     gap: '12px',
-    transition: 'all 0.15s ease'
+    transition: 'all 0.2s'
   },
   actuatorIconCircle: {
     width: '36px',
@@ -323,7 +332,8 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0
+    flexShrink: 0,
+    transition: 'all 0.2s'
   },
   actuatorDetails: {
     display: 'flex',
@@ -334,11 +344,13 @@ const styles = {
   actuatorName: {
     fontSize: '13px',
     fontWeight: '700',
-    color: '#0F172A'
+    color: 'var(--color-text-title)',
+    transition: 'color 0.2s'
   },
   actuatorStatus: {
     fontSize: '11px',
-    fontWeight: '600'
+    fontWeight: '600',
+    transition: 'color 0.2s'
   },
   toggleBtn: {
     width: '32px',
@@ -349,6 +361,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
-    boxShadow: '0 2px 6px rgba(0,0,0,0.02)'
+    boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+    transition: 'all 0.2s'
   }
 };

@@ -43,7 +43,7 @@ export default function TaskList({ tasks, currentPlant, stage, ageDays }) {
               onClick={() => toggleTask(task.id)}
               style={{
                 ...styles.taskRow,
-                backgroundColor: task.completed ? '#FAF5FF' : '#FFFFFF',
+                backgroundColor: task.completed ? 'var(--color-primary-light)' : 'var(--color-bg-card)',
                 opacity: task.completed ? 0.75 : 1
               }}
             >
@@ -62,7 +62,7 @@ export default function TaskList({ tasks, currentPlant, stage, ageDays }) {
                   <span style={{
                     ...styles.taskName,
                     textDecoration: task.completed ? 'line-through' : 'none',
-                    color: task.completed ? '#94A3B8' : '#0F172A'
+                    color: task.completed ? 'var(--color-text-muted)' : 'var(--color-text-title)'
                   }}>
                     {task.task}
                   </span>
@@ -92,14 +92,15 @@ export default function TaskList({ tasks, currentPlant, stage, ageDays }) {
 
 const styles = {
   card: {
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #E2E8F0',
+    backgroundColor: 'var(--color-bg-card)',
+    border: '1px solid var(--color-border)',
     borderRadius: '20px',
     padding: '24px',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.01)',
     display: 'flex',
     flexDirection: 'column',
-    gap: '20px'
+    gap: '20px',
+    transition: 'background-color 0.2s, border 0.2s'
   },
   header: {
     display: 'flex',
@@ -115,25 +116,28 @@ const styles = {
   title: {
     fontSize: '16px',
     fontWeight: '700',
-    color: '#0F172A',
-    fontFamily: "'Outfit', sans-serif"
+    color: 'var(--color-text-title)',
+    fontFamily: "'Outfit', sans-serif",
+    transition: 'color 0.2s'
   },
   subtitle: {
     fontSize: '11px',
-    color: '#94A3B8',
-    fontWeight: '500'
+    color: 'var(--color-text-muted)',
+    fontWeight: '500',
+    transition: 'color 0.2s'
   },
   ageBadge: {
     display: 'flex',
     alignItems: 'center',
     gap: '6px',
-    backgroundColor: '#F5F3FF',
-    border: '1px solid #DDD6FE',
+    backgroundColor: 'var(--color-primary-light)',
+    border: '1px solid var(--color-primary-medium)',
     borderRadius: '10px',
     padding: '6px 12px',
     fontSize: '11px',
     fontWeight: '700',
-    color: '#7C3AED'
+    color: 'var(--color-primary)',
+    transition: 'all 0.2s'
   },
   ageText: {
     fontFamily: "'Plus Jakarta Sans', sans-serif"
@@ -148,12 +152,12 @@ const styles = {
     alignItems: 'flex-start',
     gap: '14px',
     padding: '16px',
-    border: '1px solid #F1F5F9',
+    border: '1px solid var(--color-border)',
     borderRadius: '16px',
     cursor: 'pointer',
     transition: 'all 0.15s ease-in-out',
     ':hover': {
-      borderColor: '#DDD6FE',
+      borderColor: 'var(--color-primary-medium)',
       transform: 'translateY(-1px)'
     }
   },
@@ -184,7 +188,8 @@ const styles = {
   taskName: {
     fontSize: '14px',
     fontWeight: '600',
-    lineHeight: '1.4'
+    lineHeight: '1.4',
+    transition: 'color 0.2s'
   },
   priority: {
     fontSize: '9px',
@@ -195,15 +200,17 @@ const styles = {
   },
   notesText: {
     fontSize: '11px',
-    color: '#64748B',
-    lineHeight: '1.4'
+    color: 'var(--color-text-body)',
+    lineHeight: '1.4',
+    transition: 'color 0.2s'
   },
   categoryBadge: {
     fontSize: '10px',
     fontWeight: '600',
-    color: '#7C3AED',
+    color: 'var(--color-primary)',
     marginTop: '4px',
-    width: 'fit-content'
+    width: 'fit-content',
+    transition: 'color 0.2s'
   },
   chevron: {
     alignSelf: 'center',
@@ -212,8 +219,9 @@ const styles = {
   empty: {
     textAlign: 'center',
     padding: '32px',
-    color: '#94A3B8',
+    color: 'var(--color-text-muted)',
     fontSize: '13px',
-    fontWeight: '500'
+    fontWeight: '500',
+    transition: 'color 0.2s'
   }
 };

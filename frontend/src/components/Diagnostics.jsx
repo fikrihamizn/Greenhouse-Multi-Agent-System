@@ -96,8 +96,8 @@ export default function Diagnostics({ onDiagnose, history }) {
               onClick={() => fileInputRef.current?.click()}
               style={{
                 ...styles.dropZone,
-                borderColor: dragActive ? '#7C3AED' : '#CBD5E1',
-                backgroundColor: dragActive ? '#F5F3FF' : '#FFFFFF'
+                borderColor: dragActive ? 'var(--color-primary)' : 'var(--color-border)',
+                backgroundColor: dragActive ? 'var(--color-primary-light)' : 'var(--color-bg-card)'
               }}
             >
               <input 
@@ -214,11 +214,12 @@ export default function Diagnostics({ onDiagnose, history }) {
 
 const styles = {
   card: {
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #E2E8F0',
+    backgroundColor: 'var(--color-bg-card)',
+    border: '1px solid var(--color-border)',
     borderRadius: '20px',
     padding: '24px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.01)'
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.01)',
+    transition: 'background-color 0.2s, border 0.2s'
   },
   header: {
     display: 'flex',
@@ -229,13 +230,15 @@ const styles = {
   title: {
     fontSize: '16px',
     fontWeight: '700',
-    color: '#0F172A',
-    fontFamily: "'Outfit', sans-serif"
+    color: 'var(--color-text-title)',
+    fontFamily: "'Outfit', sans-serif",
+    transition: 'color 0.2s'
   },
   subtitle: {
     fontSize: '11px',
-    color: '#94A3B8',
-    fontWeight: '500'
+    color: 'var(--color-text-muted)',
+    fontWeight: '500',
+    transition: 'color 0.2s'
   },
   contentGrid: {
     display: 'flex',
@@ -249,23 +252,24 @@ const styles = {
   },
   reportCol: {
     flex: '1.2 1 320px',
-    border: '1px solid #F1F5F9',
+    border: '1px solid var(--color-border)',
     borderRadius: '16px',
     padding: '20px',
-    backgroundColor: '#FAFAFE',
+    backgroundColor: 'var(--color-bg-base)',
     minHeight: '260px',
-    display: 'flex'
+    display: 'flex',
+    transition: 'background-color 0.2s, border 0.2s'
   },
   dropZone: {
     width: '100%',
-    border: '2px dashed #CBD5E1',
+    border: '2px dashed var(--color-border)',
     borderRadius: '16px',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     padding: '20px',
-    transition: 'all 0.15s ease-in-out'
+    transition: 'all 0.2s ease-in-out'
   },
   fileInput: {
     display: 'none'
@@ -281,45 +285,50 @@ const styles = {
     width: '52px',
     height: '52px',
     borderRadius: '50%',
-    backgroundColor: '#F5F3FF',
+    backgroundColor: 'var(--color-primary-light)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: '6px',
-    boxShadow: '0 4px 10px rgba(124, 58, 237, 0.04)'
+    boxShadow: '0 4px 10px rgba(124, 58, 237, 0.04)',
+    transition: 'background-color 0.2s'
   },
   dropText: {
     fontSize: '14px',
     fontWeight: '700',
-    color: '#334155'
+    color: 'var(--color-text-title)',
+    transition: 'color 0.2s'
   },
   dropSubtext: {
     fontSize: '11px',
-    color: '#94A3B8'
+    color: 'var(--color-text-muted)',
+    transition: 'color 0.2s'
   },
   selectBtn: {
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #E2E8F0',
+    backgroundColor: 'var(--color-bg-card)',
+    border: '1px solid var(--color-border)',
     borderRadius: '8px',
     padding: '8px 16px',
     fontSize: '12px',
     fontWeight: '600',
-    color: '#475569',
+    color: 'var(--color-text-body)',
     cursor: 'pointer',
-    marginTop: '6px'
+    marginTop: '6px',
+    transition: 'all 0.2s'
   },
   previewContainer: {
     position: 'relative',
     width: '100%',
     borderRadius: '16px',
     overflow: 'hidden',
-    border: '1px solid #E2E8F0',
+    border: '1px solid var(--color-border)',
     backgroundColor: '#000000',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
-    height: '280px'
+    height: '280px',
+    transition: 'border 0.2s'
   },
   previewImage: {
     maxWidth: '100%',
@@ -332,17 +341,20 @@ const styles = {
     height: '100%',
     left: 0,
     top: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: 'var(--color-bg-card)',
+    opacity: 0.95,
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '12px'
+    gap: '12px',
+    transition: 'background-color 0.2s'
   },
   scanningText: {
     fontSize: '13px',
     fontWeight: '700',
-    color: '#6D28D9'
+    color: 'var(--color-primary)',
+    transition: 'color 0.2s'
   },
   spinner: {
     animation: 'spin 1.5s infinite linear'
@@ -368,7 +380,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '6px',
-    backgroundColor: '#7C3AED',
+    backgroundColor: 'var(--color-primary)',
     border: 'none',
     borderRadius: '10px',
     padding: '10px 16px',
@@ -376,22 +388,24 @@ const styles = {
     fontSize: '12px',
     fontWeight: '600',
     cursor: 'pointer',
-    boxShadow: '0 4px 10px rgba(129, 140, 248, 0.3)'
+    boxShadow: '0 4px 10px rgba(129, 140, 248, 0.3)',
+    transition: 'all 0.2s'
   },
   btnCancel: {
-    backgroundColor: '#EF4444',
+    backgroundColor: 'var(--color-danger)',
     border: 'none',
     borderRadius: '10px',
     padding: '10px 16px',
     color: '#FFFFFF',
     fontSize: '12px',
     fontWeight: '600',
-    cursor: 'pointer'
+    cursor: 'pointer',
+    transition: 'all 0.2s'
   },
   btnReset: {
     position: 'absolute',
     bottom: '16px',
-    backgroundColor: '#475569',
+    backgroundColor: 'var(--color-text-body)',
     border: 'none',
     borderRadius: '10px',
     padding: '10px 16px',
@@ -399,7 +413,8 @@ const styles = {
     fontSize: '12px',
     fontWeight: '600',
     cursor: 'pointer',
-    zIndex: 6
+    zIndex: 6,
+    transition: 'all 0.2s'
   },
   reportWrapper: {
     width: '100%',
@@ -424,8 +439,9 @@ const styles = {
   reportTitle: {
     fontSize: '16px',
     fontWeight: '700',
-    color: '#0F172A',
-    fontFamily: "'Outfit', sans-serif"
+    color: 'var(--color-text-title)',
+    fontFamily: "'Outfit', sans-serif",
+    transition: 'color 0.2s'
   },
   resultsList: {
     display: 'flex',
@@ -441,13 +457,15 @@ const styles = {
   resultLabel: {
     fontSize: '10px',
     fontWeight: '700',
-    color: '#94A3B8',
-    textTransform: 'uppercase'
+    color: 'var(--color-text-muted)',
+    textTransform: 'uppercase',
+    transition: 'color 0.2s'
   },
   resultDesc: {
     fontSize: '12px',
-    color: '#475569',
-    lineHeight: '1.4'
+    color: 'var(--color-text-body)',
+    lineHeight: '1.4',
+    transition: 'color 0.2s'
   },
   emptyReport: {
     margin: 'auto',
@@ -461,12 +479,14 @@ const styles = {
   emptyReportTitle: {
     fontSize: '14px',
     fontWeight: '700',
-    color: '#475569',
-    fontFamily: "'Outfit', sans-serif"
+    color: 'var(--color-text-body)',
+    fontFamily: "'Outfit', sans-serif",
+    transition: 'color 0.2s'
   },
   emptyReportDesc: {
     fontSize: '11px',
-    color: '#94A3B8',
-    lineHeight: '1.4'
+    color: 'var(--color-text-muted)',
+    lineHeight: '1.4',
+    transition: 'color 0.2s'
   }
 };

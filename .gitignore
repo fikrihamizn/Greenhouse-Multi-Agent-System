@@ -1,5 +1,6 @@
 # Python Virtual Environments
 greenhouse/
+greenshouse/
 venv/
 .venv/
 env/

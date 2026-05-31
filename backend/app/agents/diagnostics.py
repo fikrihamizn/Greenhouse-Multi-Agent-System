@@ -70,8 +70,13 @@ class DiagnosticsAgent:
             choice = random.choice(["spider_mites", "powdery_mildew", "leaf_spot", "healthy"])
             result = DISEASES[choice]
             
+        from app.model_config import get_agent_bindings
+        active_model = get_agent_bindings().get("vision", "qwen3-vl-4b")
+
         return {
             "filename": filename,
             "file_size_kb": round(file_size / 1024, 1),
+            "processed_by_model": active_model,
             **result
         }
+

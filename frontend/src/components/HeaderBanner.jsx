@@ -1,7 +1,7 @@
 import React from 'react';
 import { Search, Download, Plus, Sparkles, Activity } from 'lucide-react';
 
-export default function HeaderBanner({ plantName, stage, onExport }) {
+export default function HeaderBanner({ plantName, stage, onExport, userName }) {
   return (
     <div style={styles.container}>
       {/* Top action row */}
@@ -40,7 +40,7 @@ export default function HeaderBanner({ plantName, stage, onExport }) {
           </div>
           <h2 style={styles.bannerTitle}>AI Greenhouse Control</h2>
           <p style={styles.bannerSubtitle}>
-            Actively managing <strong>{plantName}</strong> ({stage}) using Plant Expert & Actuator Control Agents.
+            Hi <strong>{userName || 'Guest'}</strong>, managing <strong>{plantName}</strong> ({stage}) using Plant Expert & Actuator Control Agents.
           </p>
         </div>
       </div>

@@ -8,7 +8,8 @@ import TaskList from './components/TaskList';
 import Diagnostics from './components/Diagnostics';
 import IoTSimulator from './components/IoTSimulator';
 import ChatDrawer from './components/ChatDrawer';
-import { ShieldCheck, CloudOff, Info } from 'lucide-react';
+import { Sprout, LogOut, ShieldCheck, CloudOff, Info } from 'lucide-react';
+
 
 const API_BASE = "http://localhost:8000/api";
 
@@ -17,6 +18,194 @@ export default function App() {
   const [backendConnected, setBackendConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
+  
+  const [loggedInUser, setLoggedInUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('zentra_user_profile');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const [loggedInEmail, setLoggedInEmail] = useState(() => {
+    try {
+      const saved = localStorage.getItem('zentra_user_profile');
+      if (saved) {
+        const u = JSON.parse(saved);
+        return u.email || '';
+      }
+    } catch (e) {}
+    return localStorage.getItem('zentra_user_email') || '';
+  });
+
+  const [authMode, setAuthMode] = useState('login');
+  
+  // Login input states
+  const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  
+  // Signup input states
+  const [signupUsername, setSignupUsername] = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
+  const [signupFirstName, setSignupFirstName] = useState('');
+  const [signupSecondName, setSignupSecondName] = useState('');
+  
+  const [authenticating, setAuthenticating] = useState(false);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    const ident = loginIdentifier.trim();
+    const pass = loginPassword.trim();
+    
+    if (!ident || !pass) {
+      alert("Please enter both your identifier (email or username) and password.");
+      return;
+    }
+    setAuthenticating(true);
+
+    if (!backendConnected) {
+      // Offline fallback
+      setTimeout(() => {
+        if (
+          (ident.toLowerCase() === 'admin' || ident.toLowerCase() === 'aniqihtisyam4@gmail.com') &&
+          pass === 'password123'
+        ) {
+          const profile = {
+            username: "admin",
+            email: "aniqihtisyam4@gmail.com",
+            first_name: "Aniq",
+            second_name: "Ihtisyam"
+          };
+          localStorage.setItem('zentra_user_profile', JSON.stringify(profile));
+          localStorage.setItem('zentra_user_email', profile.email);
+          setLoggedInUser(profile);
+          setLoggedInEmail(profile.email);
+        } else {
+          const profile = {
+            username: ident.split('@')[0],
+            email: ident.includes('@') ? ident : `${ident}@zentra.com`,
+            first_name: ident.charAt(0).toUpperCase() + ident.slice(1),
+            second_name: "User"
+          };
+          localStorage.setItem('zentra_user_profile', JSON.stringify(profile));
+          localStorage.setItem('zentra_user_email', profile.email);
+          setLoggedInUser(profile);
+          setLoggedInEmail(profile.email);
+        }
+        setAuthenticating(false);
+      }, 800);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: ident, password: pass })
+      });
+      if (res.ok) {
+        const payload = await res.json();
+        const profile = payload.user;
+        localStorage.setItem('zentra_user_profile', JSON.stringify(profile));
+        localStorage.setItem('zentra_user_email', profile.email);
+        setLoggedInUser(profile);
+        setLoggedInEmail(profile.email);
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Authentication failed.");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      alert("Authentication connection failed.");
+    } finally {
+      setAuthenticating(false);
+    }
+  };
+
+  const handleSignUp = async (e) => {
+    e.preventDefault();
+    const uname = signupUsername.trim();
+    const emailVal = signupEmail.trim().toLowerCase();
+    const pass = signupPassword.trim();
+    const fname = signupFirstName.trim();
+    const sname = signupSecondName.trim();
+
+    if (!uname || !emailVal || !pass || !fname || !sname) {
+      alert("Please fill in all the registration fields.");
+      return;
+    }
+    if (!emailVal.includes('@')) {
+      alert("Please enter a valid email address.");
+      return;
+    }
+    setAuthenticating(true);
+
+    if (!backendConnected) {
+      setTimeout(() => {
+        const profile = {
+          username: uname,
+          email: emailVal,
+          first_name: fname,
+          second_name: sname
+        };
+        localStorage.setItem('zentra_user_profile', JSON.stringify(profile));
+        localStorage.setItem('zentra_user_email', profile.email);
+        setLoggedInUser(profile);
+        setLoggedInEmail(profile.email);
+        setAuthenticating(false);
+        alert("Registered successfully inside Offline Mock Mode!");
+      }, 1000);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: uname,
+          password: pass,
+          email: emailVal,
+          first_name: fname,
+          second_name: sname
+        })
+      });
+      if (res.ok) {
+        const payload = await res.json();
+        const profile = payload.user;
+        localStorage.setItem('zentra_user_profile', JSON.stringify(profile));
+        localStorage.setItem('zentra_user_email', profile.email);
+        setLoggedInUser(profile);
+        setLoggedInEmail(profile.email);
+        alert("Account registered successfully! A welcoming email has been dispatched.");
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Registration failed.");
+      }
+    } catch (err) {
+      console.error("Signup error:", err);
+      alert("Registration connection failed.");
+    } finally {
+      setAuthenticating(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('zentra_user_profile');
+    localStorage.removeItem('zentra_user_email');
+    setLoggedInUser(null);
+    setLoggedInEmail('');
+    setLoginIdentifier('');
+    setLoginPassword('');
+    setSignupUsername('');
+    setSignupEmail('');
+    setSignupPassword('');
+    setSignupFirstName('');
+    setSignupSecondName('');
+  };
+
 
   // Toggle dark mode class on document body
   useEffect(() => {
@@ -259,6 +448,32 @@ export default function App() {
     }
   };
 
+  const handleBindAgentModel = async (agentName, modelName) => {
+    // Optimistic update
+    setData(prev => ({
+      ...prev,
+      agent_bindings: {
+        ...prev.agent_bindings,
+        [agentName]: modelName
+      }
+    }));
+
+    if (!backendConnected) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/model/bind`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent: agentName, model: modelName })
+      });
+      if (res.ok) {
+        fetchStatus();
+      }
+    } catch (err) {
+      console.error("Bind agent model error:", err);
+    }
+  };
+
   // Helper metric states
   const totalTasks = data.tasks.length;
   const completedTasksCount = data.tasks.filter(t => t.completed).length;
@@ -266,6 +481,346 @@ export default function App() {
   const tasksPct = totalTasks > 0 ? Math.round((completedTasksCount / totalTasks) * 100) : 100;
 
   const activeActuatorsCount = (data.actuators.pump ? 1 : 0) + (data.actuators.fan ? 1 : 0) + (data.actuators.grow_lights ? 1 : 0);
+
+  if (!loggedInEmail) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        backgroundColor: 'var(--color-bg-base)',
+        padding: '24px',
+        fontFamily: 'var(--font-primary)'
+      }}>
+        <div style={{
+          backgroundColor: 'var(--color-bg-card)',
+          border: '1px solid var(--color-border)',
+          borderRadius: '24px',
+          padding: '40px',
+          width: '100%',
+          maxWidth: '460px',
+          boxShadow: 'var(--shadow-premium)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '20px',
+          transition: 'background-color 0.2s, border 0.2s'
+        }}>
+          {/* Logo */}
+          <div style={{
+            width: '56px',
+            height: '56px',
+            borderRadius: '16px',
+            backgroundColor: 'var(--color-primary-light)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(124, 58, 237, 0.15)',
+            transition: 'background-color 0.2s'
+          }}>
+            <Sprout size={28} color="var(--color-primary)" />
+          </div>
+
+          <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: '800', color: 'var(--color-text-title)', transition: 'color 0.2s' }}>
+              Welcome to Zentra Flora
+            </h2>
+            <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', lineHeight: '1.4', transition: 'color 0.2s' }}>
+              Automated AI Multi-Agent Greenhouse Portal
+            </p>
+          </div>
+
+          {/* Form Tabs */}
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)', width: '100%', marginBottom: '8px' }}>
+            <button 
+              type="button"
+              onClick={() => setAuthMode('login')} 
+              style={{
+                flex: 1,
+                paddingBottom: '12px',
+                border: 'none',
+                borderBottom: authMode === 'login' ? '2px solid var(--color-primary)' : 'none',
+                backgroundColor: 'transparent',
+                fontWeight: authMode === 'login' ? '700' : '500',
+                color: authMode === 'login' ? 'var(--color-text-title)' : 'var(--color-text-muted)',
+                fontSize: '14px',
+                cursor: 'pointer',
+                transition: 'color 0.2s'
+              }}
+            >
+              Sign In
+            </button>
+            <button 
+              type="button"
+              onClick={() => setAuthMode('signup')} 
+              style={{
+                flex: 1,
+                paddingBottom: '12px',
+                border: 'none',
+                borderBottom: authMode === 'signup' ? '2px solid var(--color-primary)' : 'none',
+                backgroundColor: 'transparent',
+                fontWeight: authMode === 'signup' ? '700' : '500',
+                color: authMode === 'signup' ? 'var(--color-text-title)' : 'var(--color-text-muted)',
+                fontSize: '14px',
+                cursor: 'pointer',
+                transition: 'color 0.2s'
+              }}
+            >
+              Sign Up
+            </button>
+          </div>
+
+          {authMode === 'login' ? (
+            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--color-text-muted)', textTransform: 'uppercase', transition: 'color 0.2s' }}>
+                  Username or Email
+                </label>
+                <input
+                  type="text"
+                  placeholder="enter your username or email..."
+                  value={loginIdentifier}
+                  onChange={(e) => setLoginIdentifier(e.target.value)}
+                  required
+                  style={{
+                    height: '44px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--color-border)',
+                    padding: '0 16px',
+                    backgroundColor: 'var(--color-bg-base)',
+                    fontSize: '14px',
+                    color: 'var(--color-text-body)',
+                    outline: 'none',
+                    fontWeight: '500',
+                    transition: 'background-color 0.2s, border 0.2s, color 0.2s'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--color-text-muted)', textTransform: 'uppercase', transition: 'color 0.2s' }}>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  placeholder="enter your account password..."
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  required
+                  style={{
+                    height: '44px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--color-border)',
+                    padding: '0 16px',
+                    backgroundColor: 'var(--color-bg-base)',
+                    fontSize: '14px',
+                    color: 'var(--color-text-body)',
+                    outline: 'none',
+                    fontWeight: '500',
+                    transition: 'background-color 0.2s, border 0.2s, color 0.2s'
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={authenticating}
+                style={{
+                  height: '46px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  backgroundColor: 'var(--color-primary)',
+                  color: '#FFFFFF',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(109, 40, 217, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                {authenticating ? 'Authenticating...' : 'Sign In & Synchronize'}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleSignUp} style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                  <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="First Name"
+                    value={signupFirstName}
+                    onChange={(e) => setSignupFirstName(e.target.value)}
+                    required
+                    style={{
+                      height: '40px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--color-border)',
+                      padding: '0 12px',
+                      backgroundColor: 'var(--color-bg-base)',
+                      fontSize: '13px',
+                      color: 'var(--color-text-body)',
+                      outline: 'none',
+                      fontWeight: '500',
+                      transition: 'background-color 0.2s, border 0.2s'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                  <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                    Second Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Second Name"
+                    value={signupSecondName}
+                    onChange={(e) => setSignupSecondName(e.target.value)}
+                    required
+                    style={{
+                      height: '40px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--color-border)',
+                      padding: '0 12px',
+                      backgroundColor: 'var(--color-bg-base)',
+                      fontSize: '13px',
+                      color: 'var(--color-text-body)',
+                      outline: 'none',
+                      fontWeight: '500',
+                      transition: 'background-color 0.2s, border 0.2s'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                  Username
+                </label>
+                <input
+                  type="text"
+                  placeholder="choose username..."
+                  value={signupUsername}
+                  onChange={(e) => setSignupUsername(e.target.value)}
+                  required
+                  style={{
+                    height: '40px',
+                    borderRadius: '10px',
+                    border: '1px solid var(--color-border)',
+                    padding: '0 12px',
+                    backgroundColor: 'var(--color-bg-base)',
+                    fontSize: '13px',
+                    color: 'var(--color-text-body)',
+                    outline: 'none',
+                    fontWeight: '500',
+                    transition: 'background-color 0.2s, border 0.2s'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  placeholder="enter email address..."
+                  value={signupEmail}
+                  onChange={(e) => setSignupEmail(e.target.value)}
+                  required
+                  style={{
+                    height: '40px',
+                    borderRadius: '10px',
+                    border: '1px solid var(--color-border)',
+                    padding: '0 12px',
+                    backgroundColor: 'var(--color-bg-base)',
+                    fontSize: '13px',
+                    color: 'var(--color-text-body)',
+                    outline: 'none',
+                    fontWeight: '500',
+                    transition: 'background-color 0.2s, border 0.2s'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  placeholder="create password..."
+                  value={signupPassword}
+                  onChange={(e) => setSignupPassword(e.target.value)}
+                  required
+                  style={{
+                    height: '40px',
+                    borderRadius: '10px',
+                    border: '1px solid var(--color-border)',
+                    padding: '0 12px',
+                    backgroundColor: 'var(--color-bg-base)',
+                    fontSize: '13px',
+                    color: 'var(--color-text-body)',
+                    outline: 'none',
+                    fontWeight: '500',
+                    transition: 'background-color 0.2s, border 0.2s'
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={authenticating}
+                style={{
+                  height: '44px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  backgroundColor: 'var(--color-primary)',
+                  color: '#FFFFFF',
+                  fontSize: '13.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(109, 40, 217, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  marginTop: '6px'
+                }}
+              >
+                {authenticating ? 'Registering...' : 'Create Account & Register'}
+              </button>
+            </form>
+          )}
+
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            backgroundColor: 'var(--color-primary-light)',
+            border: '1px solid var(--color-border)',
+            borderRadius: '12px',
+            padding: '12px',
+            fontSize: '11px',
+            color: 'var(--color-text-body)',
+            lineHeight: '1.4',
+            transition: 'background-color 0.2s, border 0.2s, color 0.2s'
+          }}>
+            <Info size={16} color="var(--color-primary)" style={{ flexShrink: 0 }} />
+            <span>
+              Registration dispatches a welcoming message containing the system chatbot subscription channel link: <strong>https://t.me/melmalebot</strong>.
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.appContainer}>
@@ -346,6 +901,69 @@ export default function App() {
                 )}
               </div>
 
+              {/* Agent-Specific Model Bindings Card */}
+              <div style={styles.settingsCard}>
+                <h3>Agent-Specific AI Models</h3>
+                <p style={styles.note}>Fine-tune your agricultural agents by assigning specialized LLMs or VLMs per task.</p>
+                
+                {/* Diagnostics Agent */}
+                <div style={styles.fieldRow}>
+                  <label style={{ fontWeight: '600' }}>Diagnostics Agent (Vision)</label>
+                  <select 
+                    value={(data.agent_bindings && data.agent_bindings.vision) || 'qwen3-vl-4b'}
+                    onChange={(e) => handleBindAgentModel('vision', e.target.value)}
+                    style={{
+                      ...styles.fieldInput,
+                      backgroundColor: '#FFFFFF',
+                      cursor: 'pointer',
+                      fontWeight: '500'
+                    }}
+                  >
+                    <option value="qwen3-vl-4b">Qwen 3 VL 4B (VLM - Recommended)</option>
+                    <option value="llama3.2-1b">Llama 3.2 1B (LLM)</option>
+                    <option value="gemma3-1b">Gemma 3 1B (LLM)</option>
+                  </select>
+                </div>
+
+                {/* Plant Expert Agent */}
+                <div style={styles.fieldRow}>
+                  <label style={{ fontWeight: '600' }}>Plant Expert Agent</label>
+                  <select 
+                    value={(data.agent_bindings && data.agent_bindings.expert) || 'gemma3-1b'}
+                    onChange={(e) => handleBindAgentModel('expert', e.target.value)}
+                    style={{
+                      ...styles.fieldInput,
+                      backgroundColor: '#FFFFFF',
+                      cursor: 'pointer',
+                      fontWeight: '500'
+                    }}
+                  >
+                    <option value="gemma3-1b">Gemma 3 1B (LLM - Recommended)</option>
+                    <option value="qwen3-vl-4b">Qwen 3 VL 4B (VLM)</option>
+                    <option value="llama3.2-1b">Llama 3.2 1B (LLM)</option>
+                  </select>
+                </div>
+
+                {/* Task-Scheduler Agent */}
+                <div style={styles.fieldRow}>
+                  <label style={{ fontWeight: '600' }}>Task-Scheduler Agent</label>
+                  <select 
+                    value={(data.agent_bindings && data.agent_bindings.scheduler) || 'llama3.2-1b'}
+                    onChange={(e) => handleBindAgentModel('scheduler', e.target.value)}
+                    style={{
+                      ...styles.fieldInput,
+                      backgroundColor: '#FFFFFF',
+                      cursor: 'pointer',
+                      fontWeight: '500'
+                    }}
+                  >
+                    <option value="llama3.2-1b">Llama 3.2 1B (LLM - Recommended)</option>
+                    <option value="gemma3-1b">Gemma 3 1B (LLM)</option>
+                    <option value="qwen3-vl-4b">Qwen 3 VL 4B (VLM)</option>
+                  </select>
+                </div>
+              </div>
+
               {/* Suppabase & Vercel Card */}
               <div style={styles.settingsCard}>
                 <h3>Cloud Integrations</h3>
@@ -383,8 +1001,66 @@ export default function App() {
                 </div>
                 <p style={styles.note}>Telegram /status webhook handles and SMTP secure app passwords are initialized on system bootloader tasks.</p>
               </div>
+
+              {/* User Profile Card */}
+              <div style={styles.settingsCard}>
+                <h3>User Authentication</h3>
+                <div style={styles.fieldRow}>
+                  <label>Full Name</label>
+                  <input type="text" value={loggedInUser ? `${loggedInUser.first_name} ${loggedInUser.second_name}` : 'Developer Account'} style={styles.fieldInput} readOnly />
+                </div>
+                <div style={styles.fieldRow}>
+                  <label>Username</label>
+                  <input type="text" value={loggedInUser?.username || 'admin'} style={styles.fieldInput} readOnly />
+                </div>
+                <div style={styles.fieldRow}>
+                  <label>Signed In As (Email)</label>
+                  <input type="text" value={loggedInEmail} style={styles.fieldInput} readOnly />
+                </div>
+                <div style={styles.fieldRow}>
+                  <label>Telegram Bot Invite</label>
+                  <a 
+                    href="https://t.me/melmalebot" 
+                    target="_blank" 
+                    rel="noreferrer"
+                    style={{
+                      fontSize: '13px',
+                      color: 'var(--color-primary)',
+                      fontWeight: '700',
+                      textDecoration: 'underline',
+                      marginTop: '4px',
+                      fontFamily: 'var(--font-primary)'
+                    }}
+                  >
+                    Subscribe to Bot (@melmalebot)
+                  </a>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    height: '42px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    backgroundColor: '#EF4444',
+                    color: '#FFFFFF',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    marginTop: '12px',
+                    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.15)'
+                  }}
+                >
+                  <LogOut size={14} />
+                  <span>Sign Out / Lock Portal</span>
+                </button>
+              </div>
             </div>
           </div>
+
         ) : (
           <>
             {/* Top Header Banner containing illustrations */}
@@ -392,6 +1068,7 @@ export default function App() {
               plantName={data.current_plant} 
               stage={data.growth_stage} 
               onExport={() => alert("Telemetry history reports exported successfully.")}
+              userName={loggedInUser ? `${loggedInUser.first_name} ${loggedInUser.second_name}` : ''}
             />
 
             {/* Metrics cards row matching Zentra layout */}
@@ -505,8 +1182,8 @@ const styles = {
     marginLeft: '260px', // Matches sidebar width
     flex: 1,
     padding: '32px',
-    maxWidth: '1300px',
-    marginRight: 'auto',
+    maxWidth: '100%',
+    width: 'calc(100% - 260px)',
     display: 'flex',
     flexDirection: 'column',
     gap: '24px'

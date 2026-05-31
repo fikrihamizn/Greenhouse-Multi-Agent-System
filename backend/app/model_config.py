@@ -36,8 +36,15 @@ DEFAULT_MODEL = os.getenv("SELECTED_MODEL", "qwen3-vl-4b")
 if DEFAULT_MODEL not in MODEL_CHOICES:
     DEFAULT_MODEL = "qwen3-vl-4b"
 
-# Active state tracking
+# Active state tracking (global fallback model)
 _current_active_model = DEFAULT_MODEL
+
+# Agent-Specific Model Bindings (Each agent powered by a custom model)
+_agent_bindings = {
+    "vision": "qwen3-vl-4b",     # Diagnostics Agent (VLM required for leaf visual scans)
+    "expert": "gemma3-1b",       # Plant Expert Agent
+    "scheduler": "llama3.2-1b"   # Task-Scheduler Agent
+}
 
 def get_active_model() -> str:
     global _current_active_model
@@ -50,8 +57,20 @@ def set_active_model(model_name: str) -> bool:
         return True
     return False
 
+def get_agent_bindings() -> dict:
+    global _agent_bindings
+    return _agent_bindings
+
+def set_agent_binding(agent_name: str, model_name: str) -> bool:
+    global _agent_bindings
+    if agent_name in _agent_bindings and model_name in MODEL_CHOICES:
+        _agent_bindings[agent_name] = model_name
+        return True
+    return False
+
 def get_active_model_details() -> dict:
     return MODEL_CHOICES[get_active_model()]
 
 def get_all_models() -> dict:
     return MODEL_CHOICES
+

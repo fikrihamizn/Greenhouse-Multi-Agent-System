@@ -126,27 +126,30 @@ export default function GrowthStage({
 
 const styles = {
   card: {
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #E2E8F0',
+    backgroundColor: 'var(--color-bg-card)',
+    border: '1px solid var(--color-border)',
     borderRadius: '20px',
     padding: '24px',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.01)',
     display: 'flex',
     flexDirection: 'column',
-    gap: '16px'
+    gap: '16px',
+    transition: 'background-color 0.2s, border 0.2s'
   },
   title: {
     fontSize: '16px',
     fontWeight: '700',
-    color: '#0F172A',
-    fontFamily: "'Outfit', sans-serif"
+    color: 'var(--color-text-title)',
+    fontFamily: "'Outfit', sans-serif",
+    transition: 'color 0.2s'
   },
   subtitle: {
     fontSize: '13px',
     fontWeight: '700',
-    color: '#64748B',
+    color: 'var(--color-text-muted)',
     textTransform: 'uppercase',
-    letterSpacing: '0.5px'
+    letterSpacing: '0.5px',
+    transition: 'color 0.2s'
   },
   selectorsGrid: {
     display: 'grid',
@@ -161,18 +164,20 @@ const styles = {
   selectLabel: {
     fontSize: '10px',
     fontWeight: '700',
-    color: '#94A3B8',
-    textTransform: 'uppercase'
+    color: 'var(--color-text-muted)',
+    textTransform: 'uppercase',
+    transition: 'color 0.2s'
   },
   selectContainer: {
     display: 'flex',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    border: '1px solid #E2E8F0',
+    backgroundColor: 'var(--color-bg-base)',
+    border: '1px solid var(--color-border)',
     borderRadius: '10px',
     padding: '0 10px',
     height: '36px',
-    position: 'relative'
+    position: 'relative',
+    transition: 'all 0.2s'
   },
   selectIcon: {
     marginRight: '6px'
@@ -183,9 +188,10 @@ const styles = {
     backgroundColor: 'transparent',
     fontSize: '12px',
     fontWeight: '600',
-    color: '#475569',
+    color: 'var(--color-text-body)',
     width: '100%',
-    cursor: 'pointer'
+    cursor: 'pointer',
+    transition: 'color 0.2s'
   },
   numberInput: {
     border: 'none',
@@ -193,12 +199,14 @@ const styles = {
     backgroundColor: 'transparent',
     fontSize: '12px',
     fontWeight: '600',
-    color: '#475569',
-    width: '100%'
+    color: 'var(--color-text-body)',
+    width: '100%',
+    transition: 'color 0.2s'
   },
   divider: {
     border: 'none',
-    borderBottom: '1px solid #F1F5F9'
+    borderBottom: '1px solid var(--color-border)',
+    transition: 'border 0.2s'
   },
   metricsWrapper: {
     display: 'flex',
@@ -217,7 +225,8 @@ const styles = {
     fontWeight: '600'
   },
   metricLabel: {
-    color: '#475569'
+    color: 'var(--color-text-body)',
+    transition: 'color 0.2s'
   },
   metricValue: {
     display: 'flex',
@@ -226,21 +235,24 @@ const styles = {
   },
   targetLabel: {
     fontSize: '10px',
-    color: '#94A3B8'
+    color: 'var(--color-text-muted)',
+    transition: 'color 0.2s'
   },
   barTrack: {
     position: 'relative',
     height: '6px',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'var(--color-bg-base)',
     borderRadius: '10px',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    transition: 'background-color 0.2s'
   },
   idealRange: {
     position: 'absolute',
     height: '100%',
-    backgroundColor: '#F5F3FF',
-    borderLeft: '1px solid #DDD6FE',
-    borderRight: '1px solid #DDD6FE'
+    backgroundColor: 'var(--color-primary-light)',
+    borderLeft: '1px solid var(--color-primary-medium)',
+    borderRight: '1px solid var(--color-primary-medium)',
+    transition: 'all 0.2s'
   },
   barFill: {
     position: 'absolute',

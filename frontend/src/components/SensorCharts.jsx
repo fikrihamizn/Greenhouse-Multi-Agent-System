@@ -70,13 +70,13 @@ export default function SensorCharts({ history }) {
           </defs>
 
           {/* Grid lines */}
-          <line x1="40" y1="20" x2="680" y2="20" stroke="#F1F5F9" strokeWidth="1" />
-          <line x1="40" y1="70" x2="680" y2="70" stroke="#F1F5F9" strokeWidth="1" />
-          <line x1="40" y1="120" x2="680" y2="120" stroke="#F1F5F9" strokeWidth="1" />
-          <line x1="40" y1="170" x2="680" y2="170" stroke="#F1F5F9" strokeWidth="1" />
+          <line x1="40" y1="20" x2="680" y2="20" stroke="var(--color-border)" strokeWidth="1" />
+          <line x1="40" y1="70" x2="680" y2="70" stroke="var(--color-border)" strokeWidth="1" />
+          <line x1="40" y1="120" x2="680" y2="120" stroke="var(--color-border)" strokeWidth="1" />
+          <line x1="40" y1="170" x2="680" y2="170" stroke="var(--color-border)" strokeWidth="1" />
           
           {/* Base bottom axis */}
-          <line x1="40" y1="180" x2="680" y2="180" stroke="#E2E8F0" strokeWidth="1.5" />
+          <line x1="40" y1="180" x2="680" y2="180" stroke="var(--color-border)" strokeWidth="1.5" />
 
           {/* Draw bars */}
           {data.map((item, idx) => {
@@ -115,7 +115,7 @@ export default function SensorCharts({ history }) {
                   x={x + barWidth / 2}
                   y={y - 8}
                   textAnchor="middle"
-                  fill="#0F172A"
+                  fill="var(--color-text-title)"
                   fontSize="11"
                   fontWeight="700"
                   style={styles.tooltipText}
@@ -128,7 +128,7 @@ export default function SensorCharts({ history }) {
                   x={x + barWidth / 2}
                   y="198"
                   textAnchor="middle"
-                  fill="#94A3B8"
+                  fill="var(--color-text-muted)"
                   fontSize="10"
                   fontWeight="600"
                 >
@@ -145,14 +145,15 @@ export default function SensorCharts({ history }) {
 
 const styles = {
   card: {
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #E2E8F0',
+    backgroundColor: 'var(--color-bg-card)',
+    border: '1px solid var(--color-border)',
     borderRadius: '20px',
     padding: '24px',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.01)',
     display: 'flex',
     flexDirection: 'column',
-    gap: '20px'
+    gap: '20px',
+    transition: 'background-color 0.2s, border 0.2s'
   },
   header: {
     display: 'flex',
@@ -169,13 +170,15 @@ const styles = {
   title: {
     fontSize: '16px',
     fontWeight: '700',
-    color: '#0F172A',
-    fontFamily: "'Outfit', sans-serif"
+    color: 'var(--color-text-title)',
+    fontFamily: "'Outfit', sans-serif",
+    transition: 'color 0.2s'
   },
   subtitle: {
     fontSize: '11px',
-    color: '#94A3B8',
-    fontWeight: '500'
+    color: 'var(--color-text-muted)',
+    fontWeight: '500',
+    transition: 'color 0.2s'
   },
   btnRow: {
     display: 'flex',
@@ -187,29 +190,31 @@ const styles = {
     padding: '6px 12px',
     border: 'none',
     borderRadius: '8px',
-    backgroundColor: '#F8FAFC',
-    color: '#64748B',
+    backgroundColor: 'var(--color-bg-base)',
+    color: 'var(--color-text-muted)',
     fontSize: '12px',
     fontWeight: '600',
-    cursor: 'pointer'
+    cursor: 'pointer',
+    transition: 'all 0.2s'
   },
   tabBtnActive: {
-    backgroundColor: '#F5F3FF',
-    color: '#7C3AED',
+    backgroundColor: 'var(--color-primary-light)',
+    color: 'var(--color-primary)',
     boxShadow: '0 2px 6px rgba(124,58,237,0.05)'
   },
   dropdown: {
     display: 'flex',
     alignItems: 'center',
     gap: '6px',
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #E2E8F0',
+    backgroundColor: 'var(--color-bg-card)',
+    border: '1px solid var(--color-border)',
     borderRadius: '8px',
     padding: '6px 12px',
     fontSize: '12px',
     fontWeight: '600',
-    color: '#64748B',
-    cursor: 'pointer'
+    color: 'var(--color-text-body)',
+    cursor: 'pointer',
+    transition: 'all 0.2s'
   },
   dropdownText: {
     fontFamily: "'Plus Jakarta Sans', sans-serif"

@@ -44,8 +44,8 @@ export default function StatCard({ type, title, value, change, description, tren
 
 const styles = {
   card: {
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #E2E8F0',
+    backgroundColor: 'var(--color-bg-card)',
+    border: '1px solid var(--color-border)',
     borderRadius: '20px',
     padding: '24px',
     display: 'flex',
@@ -55,7 +55,7 @@ const styles = {
     flex: '1 1 calc(25% - 16px)',
     minWidth: '220px',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.01)',
-    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s, border 0.2s',
     cursor: 'default'
   },
   cardHeader: {
@@ -67,8 +67,9 @@ const styles = {
   cardTitle: {
     fontSize: '13px',
     fontWeight: '600',
-    color: '#64748B',
-    textTransform: 'capitalize'
+    color: 'var(--color-text-muted)',
+    textTransform: 'capitalize',
+    transition: 'color 0.2s'
   },
   iconWrapper: {
     width: '36px',
@@ -84,9 +85,10 @@ const styles = {
   cardValue: {
     fontSize: '26px',
     fontWeight: '700',
-    color: '#0F172A',
+    color: 'var(--color-text-title)',
     fontFamily: "'Outfit', sans-serif",
-    letterSpacing: '-0.5px'
+    letterSpacing: '-0.5px',
+    transition: 'color 0.2s'
   },
   footerRow: {
     display: 'flex',
@@ -103,6 +105,7 @@ const styles = {
   cardDesc: {
     fontSize: '11px',
     fontWeight: '500',
-    color: '#94A3B8'
+    color: 'var(--color-text-muted)',
+    transition: 'color 0.2s'
   }
 };

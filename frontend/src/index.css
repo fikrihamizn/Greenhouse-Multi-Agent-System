@@ -35,6 +35,23 @@
   --shadow-premium: 0 20px 40px -15px rgba(109, 40, 217, 0.08);
 }
 
+body.dark-mode {
+  --color-bg-base: #0B0F19;
+  --color-bg-sidebar: #111827;
+  --color-bg-card: #1F2937;
+  --color-border: #374151;
+  --color-text-title: #F9FAFB;
+  --color-text-body: #E5E7EB;
+  --color-text-muted: #9CA3AF;
+  
+  --color-primary-light: #2E1065;
+  --color-primary-medium: #4C1D95;
+  
+  background-color: var(--color-bg-base);
+  color: var(--color-text-body);
+}
+
+
 * {
   box-sizing: border-box;
   margin: 0;

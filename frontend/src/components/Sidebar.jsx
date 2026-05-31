@@ -1,27 +1,18 @@
 import React from 'react';
 import { 
   LayoutDashboard, 
-  Activity, 
-  ScanLine, 
-  CheckSquare, 
-  MessageSquare, 
   Settings, 
-  Inbox, 
   Sprout, 
-  Sparkles 
+  Sun, 
+  Moon 
 } from 'lucide-react';
 
-export default function Sidebar({ activeTab, setActiveTab }) {
+export default function Sidebar({ activeTab, setActiveTab, darkMode, setDarkMode }) {
   const menuItems = [
-    { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
-    { id: 'sensors', name: 'IoT Sensors', icon: Activity },
-    { id: 'diagnostics', name: 'Diagnostics Center', icon: ScanLine },
-    { id: 'tasks', name: 'Agri-Tasks', icon: CheckSquare },
-    { id: 'chat', name: 'AI Telegram Bot', icon: MessageSquare }
+    { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard }
   ];
 
   const settingsItems = [
-    { id: 'inbox', name: 'Alerts Logs', icon: Inbox },
     { id: 'settings', name: 'System Settings', icon: Settings }
   ];
 
@@ -30,7 +21,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
       {/* Brand Header */}
       <div style={styles.brand}>
         <div style={styles.logoContainer}>
-          <Sprout size={22} color="#7C3AED" />
+          <Sprout size={22} color="var(--color-primary)" />
         </div>
         <span style={styles.brandName}>Zentra Flora</span>
       </div>
@@ -52,13 +43,13 @@ export default function Sidebar({ activeTab, setActiveTab }) {
             >
               <Icon 
                 size={18} 
-                color={isActive ? '#7C3AED' : '#94A3B8'} 
+                color={isActive ? 'var(--color-primary)' : 'var(--color-text-muted)'} 
                 style={styles.icon}
               />
               <span style={{ 
                 ...styles.label, 
                 fontWeight: isActive ? '600' : '500',
-                color: isActive ? '#0F172A' : '#475569'
+                color: isActive ? 'var(--color-text-title)' : 'var(--color-text-body)'
               }}>{item.name}</span>
             </button>
           );
@@ -82,27 +73,37 @@ export default function Sidebar({ activeTab, setActiveTab }) {
             >
               <Icon 
                 size={18} 
-                color={isActive ? '#7C3AED' : '#94A3B8'} 
+                color={isActive ? 'var(--color-primary)' : 'var(--color-text-muted)'} 
                 style={styles.icon}
               />
               <span style={{ 
                 ...styles.label, 
                 fontWeight: isActive ? '600' : '500',
-                color: isActive ? '#0F172A' : '#475569'
+                color: isActive ? 'var(--color-text-title)' : 'var(--color-text-body)'
               }}>{item.name}</span>
             </button>
           );
         })}
       </nav>
 
-      {/* Upgrade Banner at bottom */}
-      <div style={styles.upgradeCard}>
-        <div style={styles.upgradeIcon}>
-          <Sparkles size={18} color="#7C3AED" />
+      {/* Dark/Light Mode switch at bottom */}
+      <div style={styles.themeToggleCard}>
+        <div style={styles.themeToggleHeader}>
+          {darkMode ? <Moon size={16} color="var(--color-primary)" /> : <Sun size={16} color="var(--color-warning)" />}
+          <span style={styles.themeToggleText}>{darkMode ? 'Dark Mode' : 'Light Mode'}</span>
         </div>
-        <h4 style={styles.upgradeTitle}>Unlock full insights</h4>
-        <p style={styles.upgradeSubtitle}>across all your physical greenhouses with Zentra.</p>
-        <button style={styles.upgradeBtn}>Upgrade Plan</button>
+        <button 
+          onClick={() => setDarkMode(!darkMode)}
+          style={{
+            ...styles.togglePill,
+            backgroundColor: darkMode ? 'var(--color-primary)' : '#CBD5E1'
+          }}
+        >
+          <div style={{
+            ...styles.toggleCircle,
+            transform: darkMode ? 'translateX(18px)' : 'translateX(0px)'
+          }}></div>
+        </button>
       </div>
     </div>
   );
@@ -111,8 +112,8 @@ export default function Sidebar({ activeTab, setActiveTab }) {
 const styles = {
   sidebar: {
     width: '260px',
-    backgroundColor: '#FFFFFF',
-    borderRight: '1px solid #E2E8F0',
+    backgroundColor: 'var(--color-bg-sidebar)',
+    borderRight: '1px solid var(--color-border)',
     display: 'flex',
     flexDirection: 'column',
     height: '100vh',
@@ -121,7 +122,8 @@ const styles = {
     left: 0,
     top: 0,
     overflowY: 'auto',
-    zIndex: 10
+    zIndex: 10,
+    transition: 'background-color 0.2s, border-right 0.2s'
   },
   brand: {
     display: 'flex',
@@ -134,25 +136,28 @@ const styles = {
     width: '36px',
     height: '36px',
     borderRadius: '10px',
-    backgroundColor: '#F5F3FF',
+    backgroundColor: 'var(--color-primary-light)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0 2px 8px rgba(124, 58, 237, 0.08)'
+    boxShadow: '0 2px 8px rgba(124, 58, 237, 0.08)',
+    transition: 'background-color 0.2s'
   },
   brandName: {
     fontFamily: "'Outfit', sans-serif",
     fontSize: '20px',
     fontWeight: '700',
-    color: '#0F172A',
-    letterSpacing: '-0.5px'
+    color: 'var(--color-text-title)',
+    letterSpacing: '-0.5px',
+    transition: 'color 0.2s'
   },
   sectionHeader: {
     fontSize: '11px',
     fontWeight: '700',
-    color: '#94A3B8',
+    color: 'var(--color-text-muted)',
     letterSpacing: '1px',
-    margin: '16px 0 8px 8px'
+    margin: '16px 0 8px 8px',
+    transition: 'color 0.2s'
   },
   nav: {
     display: 'flex',
@@ -173,7 +178,7 @@ const styles = {
     transition: 'all 0.15s ease-in-out'
   },
   navButtonActive: {
-    backgroundColor: '#F5F3FF'
+    backgroundColor: 'var(--color-primary-light)'
   },
   icon: {
     marginRight: '12px',
@@ -181,53 +186,48 @@ const styles = {
   },
   label: {
     fontSize: '14px',
-    fontFamily: "'Plus Jakarta Sans', sans-serif"
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
+    transition: 'color 0.2s'
   },
-  upgradeCard: {
+  themeToggleCard: {
     marginTop: 'auto',
-    backgroundColor: '#FAF5FF',
+    backgroundColor: 'var(--color-primary-light)',
     borderRadius: '16px',
     padding: '16px',
-    border: '1px solid #F3E8FF',
     display: 'flex',
-    flexDirection: 'column',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    textAlign: 'center',
-    gap: '8px',
-    boxShadow: '0 4px 12px rgba(124, 58, 237, 0.02)'
+    border: '1px solid var(--color-border)',
+    transition: 'background-color 0.2s, border 0.2s'
   },
-  upgradeIcon: {
-    width: '32px',
-    height: '32px',
-    borderRadius: '8px',
-    backgroundColor: '#FFFFFF',
+  themeToggleHeader: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 2px 6px rgba(124, 58, 237, 0.05)'
+    gap: '8px'
   },
-  upgradeTitle: {
+  themeToggleText: {
     fontSize: '13px',
-    fontWeight: '700',
-    color: '#0F172A',
-    marginTop: '4px'
-  },
-  upgradeSubtitle: {
-    fontSize: '11px',
-    color: '#64748B',
-    lineHeight: '1.4'
-  },
-  upgradeBtn: {
-    width: '100%',
-    padding: '10px',
-    border: 'none',
-    borderRadius: '10px',
-    backgroundColor: '#6D28D9',
-    color: '#FFFFFF',
-    fontSize: '12px',
     fontWeight: '600',
+    color: 'var(--color-text-title)'
+  },
+  togglePill: {
+    width: '38px',
+    height: '20px',
+    borderRadius: '20px',
+    border: 'none',
+    padding: '2px',
     cursor: 'pointer',
-    marginTop: '6px',
-    boxShadow: '0 2px 6px rgba(109, 40, 217, 0.2)'
+    display: 'flex',
+    alignItems: 'center',
+    transition: 'background-color 0.2s'
+  },
+  toggleCircle: {
+    width: '16px',
+    height: '16px',
+    borderRadius: '50%',
+    backgroundColor: '#FFFFFF',
+    transition: 'transform 0.2s ease-in-out',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
   }
 };
+;

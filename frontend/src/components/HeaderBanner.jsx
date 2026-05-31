@@ -6,26 +6,16 @@ export default function HeaderBanner({ plantName, stage, onExport }) {
     <div style={styles.container}>
       {/* Top action row */}
       <div style={styles.topRow}>
-        {/* Search Input Bar */}
-        <div style={styles.searchWrapper}>
-          <Search size={18} color="#94A3B8" style={styles.searchIcon} />
-          <input 
-            type="text" 
-            placeholder="Search crop telemetry, diagnostics, scheduler tasks..." 
-            style={styles.searchInput}
-          />
-          <kbd style={styles.kbd}>⌘K</kbd>
+        <div style={styles.titleWrapper}>
+          <h1 style={styles.mainHeading}>Zentra Flora</h1>
+          <span style={styles.headingSubtitle}>Automated Multi-Agent Greenhouse Portal</span>
         </div>
 
         {/* Buttons */}
         <div style={styles.btnGroup}>
           <button style={styles.btnSecondary} onClick={onExport}>
             <Download size={16} />
-            <span>Export Report</span>
-          </button>
-          <button style={styles.btnPrimary}>
-            <Plus size={16} />
-            <span>Add New Zone</span>
+            <span>Export Telemetry Report</span>
           </button>
         </div>
       </div>
@@ -72,41 +62,23 @@ const styles = {
     gap: '16px',
     flexWrap: 'wrap'
   },
-  searchWrapper: {
-    position: 'relative',
+  titleWrapper: {
     display: 'flex',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #E2E8F0',
-    borderRadius: '12px',
-    padding: '0 16px',
-    height: '46px',
-    width: '400px',
-    maxWidth: '100%',
-    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.01)'
+    flexDirection: 'column',
+    gap: '2px'
   },
-  searchIcon: {
-    marginRight: '10px'
+  mainHeading: {
+    fontFamily: "'Outfit', sans-serif",
+    fontSize: '28px',
+    fontWeight: '800',
+    color: 'var(--color-text-title)',
+    transition: 'color 0.2s'
   },
-  searchInput: {
-    border: 'none',
-    outline: 'none',
-    backgroundColor: 'transparent',
-    fontSize: '14px',
-    color: '#0F172A',
-    width: '100%',
-    fontWeight: '500'
-  },
-  kbd: {
-    backgroundColor: '#F1F5F9',
-    border: '1px solid #E2E8F0',
-    borderRadius: '6px',
-    padding: '2px 6px',
-    fontSize: '11px',
+  headingSubtitle: {
+    fontSize: '13px',
     fontWeight: '600',
-    color: '#64748B',
-    marginLeft: '8px',
-    pointerEvents: 'none'
+    color: 'var(--color-text-muted)',
+    transition: 'color 0.2s'
   },
   btnGroup: {
     display: 'flex',
@@ -117,31 +89,17 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #E2E8F0',
+    backgroundColor: 'var(--color-bg-card)',
+    border: '1px solid var(--color-border)',
     borderRadius: '12px',
     height: '46px',
     padding: '0 20px',
     fontSize: '14px',
     fontWeight: '600',
-    color: '#475569',
+    color: 'var(--color-text-body)',
     cursor: 'pointer',
-    boxShadow: '0 2px 6px rgba(0,0,0,0.01)'
-  },
-  btnPrimary: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    backgroundColor: '#7C3AED',
-    border: 'none',
-    borderRadius: '12px',
-    height: '46px',
-    padding: '0 20px',
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#FFFFFF',
-    cursor: 'pointer',
-    boxShadow: '0 4px 12px rgba(124, 58, 237, 0.2)'
+    boxShadow: '0 2px 6px rgba(0,0,0,0.01)',
+    transition: 'background-color 0.2s, border 0.2s, color 0.2s'
   },
   banner: {
     position: 'relative',
@@ -166,22 +124,22 @@ const styles = {
     height: '100%',
     left: 0,
     top: 0,
-    background: 'linear-gradient(90deg, rgba(15, 23, 42, 0.4) 0%, rgba(124, 58, 237, 0.1) 100%)'
+    background: 'linear-gradient(90deg, rgba(15, 23, 42, 0.45) 0%, rgba(124, 58, 237, 0.1) 100%)'
   },
   glassCard: {
     position: 'relative',
     marginLeft: '32px',
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    backdropFilter: 'blur(16px)',
-    WebkitBackdropFilter: 'blur(16px)',
-    border: '1px solid rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'var(--color-bg-card)',
+    border: '1px solid var(--color-border)',
     borderRadius: '20px',
     padding: '16px 24px',
     maxWidth: '460px',
     boxShadow: '0 10px 30px rgba(0, 0, 0, 0.08)',
     display: 'flex',
     flexDirection: 'column',
-    gap: '6px'
+    gap: '6px',
+    opacity: 0.95,
+    transition: 'background-color 0.2s, border 0.2s'
   },
   badge: {
     display: 'inline-flex',
@@ -203,12 +161,15 @@ const styles = {
   bannerTitle: {
     fontSize: '20px',
     fontWeight: '800',
-    color: '#0F172A',
-    fontFamily: "'Outfit', sans-serif"
+    color: 'var(--color-text-title)',
+    fontFamily: "'Outfit', sans-serif",
+    transition: 'color 0.2s'
   },
   bannerSubtitle: {
     fontSize: '12px',
-    color: '#475569',
-    lineHeight: '1.5'
+    color: 'var(--color-text-body)',
+    lineHeight: '1.5',
+    transition: 'color 0.2s'
   }
 };
+;

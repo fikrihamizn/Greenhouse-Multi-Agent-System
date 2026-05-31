@@ -1,3 +1,9 @@
+import os
+import sys
+
+# Support running directly via 'uvicorn main:app --reload' from backend/app or backend folder
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
@@ -11,6 +17,8 @@ from app.agents.diagnostics import DiagnosticsAgent
 from app.agents.actuator import ActuatorControlAgent
 from app.services.telegram_bot import TelegramBotService
 from app.services.email_service import EmailService
+from app.model_config import get_active_model, get_all_models, set_active_model
+
 
 app = FastAPI(
     title="Zentra Flora - Greenhouse Multi-Agent API",
@@ -56,8 +64,32 @@ async def get_system_status():
         "chat_history": global_state.chat_history,
         "alerts_history": global_state.alerts_history,
         "diagnostics_history": global_state.diagnostics_history,
-        "tasks": daily_tasks
+        "tasks": daily_tasks,
+        "active_model": get_active_model(),
+        "models": get_all_models()
     }
+
+@app.post("/api/model/select")
+async def select_system_model(payload: Dict[str, str]):
+    """Selects which LLM/VLM is backing plant diagnostics and automated schedules."""
+    model_name = payload.get("model")
+    if not model_name:
+        raise HTTPException(status_code=400, detail="Model name is required")
+        
+    success = set_active_model(model_name)
+    if not success:
+        raise HTTPException(status_code=400, detail=f"Model '{model_name}' is not supported")
+        
+    # Inject alert log of model shifting
+    from app.services.telegram_bot import TelegramBotService
+    TelegramBotService.send_alert(f"🤖 System Model reconfigured. Active LLM/VLM backing shifted to '{model_name}'.")
+    
+    return {
+        "status": "Model Shifted",
+        "active_model": get_active_model(),
+        "details": get_all_models()[get_active_model()]
+    }
+
 
 @app.post("/api/sensors")
 async def update_sensor_readings(reading: SensorReading):

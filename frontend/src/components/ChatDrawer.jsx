@@ -5,10 +5,21 @@ export default function ChatDrawer({ chatHistory, alertsHistory, onSendChatMessa
   const [activePane, setActivePane] = useState('chat'); // 'chat' or 'alerts'
   const [inputMsg, setInputMsg] = useState('');
   const chatEndRef = useRef(null);
+  const prevLengthRef = useRef(chatHistory.length);
+  const prevPaneRef = useRef(activePane);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatHistory, activePane]);
+    const chatAppended = chatHistory.length > prevLengthRef.current;
+    const tabSwappedToChat = activePane === 'chat' && prevPaneRef.current !== 'chat';
+
+    if (chatAppended || tabSwappedToChat) {
+      setTimeout(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 50);
+    }
+    prevLengthRef.current = chatHistory.length;
+    prevPaneRef.current = activePane;
+  }, [chatHistory.length, activePane]);
 
   const handleSend = async (e) => {
     e.preventDefault();

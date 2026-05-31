@@ -16,6 +16,16 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [backendConnected, setBackendConnected] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
+
+  // Toggle dark mode class on document body
+  useEffect(() => {
+    if (darkMode) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+  }, [darkMode]);
 
   // Global system data state container
   const [data, setData] = useState({
@@ -226,6 +236,29 @@ export default function App() {
     }
   };
 
+  const handleSelectModel = async (modelName) => {
+    // Optimistic update
+    setData(prev => ({
+      ...prev,
+      active_model: modelName
+    }));
+
+    if (!backendConnected) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/model/select`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: modelName })
+      });
+      if (res.ok) {
+        fetchStatus();
+      }
+    } catch (err) {
+      console.error("Select model error:", err);
+    }
+  };
+
   // Helper metric states
   const totalTasks = data.tasks.length;
   const completedTasksCount = data.tasks.filter(t => t.completed).length;
@@ -237,7 +270,7 @@ export default function App() {
   return (
     <div style={styles.appContainer}>
       {/* Sidebar Navigation */}
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} darkMode={darkMode} setDarkMode={setDarkMode} />
 
       {/* Main Panel Content Area */}
       <main style={styles.mainContent}>
@@ -256,33 +289,99 @@ export default function App() {
           <div style={styles.settingsPage}>
             <h2>System Configurations</h2>
             <div style={styles.settingsGrid}>
+              
+              {/* Model Select Card */}
               <div style={styles.settingsCard}>
-                <h3>Notifications Credentials</h3>
+                <h3>System AI Core Model</h3>
+                <p style={styles.note}>Define the backing AI Model running active reasoning routines inside Zentra Flora agents.</p>
+                
                 <div style={styles.fieldRow}>
-                  <label>Telegram Bot Token</label>
-                  <input type="text" placeholder="123456789:ABCdefGhIJKlmnoPQ..." style={styles.fieldInput} readOnly />
+                  <label>Selected LLM / VLM Core</label>
+                  <select 
+                    value={data.active_model || 'qwen3-vl-4b'}
+                    onChange={(e) => handleSelectModel(e.target.value)}
+                    style={{
+                      ...styles.fieldInput,
+                      backgroundColor: '#FFFFFF',
+                      cursor: 'pointer',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {data.models ? (
+                      Object.keys(data.models).map(key => (
+                        <option key={key} value={key}>{data.models[key].name}</option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="qwen3-vl-4b">Qwen 3 VL 4B (VLM)</option>
+                        <option value="llama3.2-1b">Llama 3.2 1B (LLM)</option>
+                        <option value="gemma3-1b">Gemma 3 1B (LLM)</option>
+                      </>
+                    )}
+                  </select>
                 </div>
-                <div style={styles.fieldRow}>
-                  <label>Target Chat ID</label>
-                  <input type="text" placeholder="-100123456789" style={styles.fieldInput} readOnly />
-                </div>
-                <p style={styles.note}>Configure environmental variables in a <code>.env</code> file in the backend directory to activate live notification APIs.</p>
+
+                {data.models && data.models[data.active_model || 'qwen3-vl-4b'] && (
+                  <div style={{
+                    backgroundColor: '#FAF5FF',
+                    border: '1px solid #F3E8FF',
+                    borderRadius: '12px',
+                    padding: '14px',
+                    fontSize: '12px',
+                    color: '#475569',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    <span style={{ fontWeight: '700', color: '#7C3AED' }}>
+                      Active: {data.models[data.active_model || 'qwen3-vl-4b'].type}
+                    </span>
+                    <span style={{ fontSize: '11px', fontWeight: '500' }}>
+                      Context Window: {data.models[data.active_model || 'qwen3-vl-4b'].context_window} tokens | Params: {data.models[data.active_model || 'qwen3-vl-4b'].parameters}
+                    </span>
+                    <p style={{ marginTop: '4px', lineHeight: '1.4' }}>
+                      {data.models[data.active_model || 'qwen3-vl-4b'].description}
+                    </p>
+                  </div>
+                )}
               </div>
 
+              {/* Suppabase & Vercel Card */}
               <div style={styles.settingsCard}>
-                <h3>SMTP Email Credentials</h3>
+                <h3>Cloud Integrations</h3>
                 <div style={styles.fieldRow}>
-                  <label>SMTP Host</label>
-                  <input type="text" placeholder="smtp.gmail.com" style={styles.fieldInput} readOnly />
+                  <label>Supabase Database Connection</label>
+                  <input 
+                    type="text" 
+                    value={backendConnected ? "Connected (Loaded via backend)" : "supabase-connection-active (Simulation)"} 
+                    style={styles.fieldInput} 
+                    readOnly 
+                  />
                 </div>
                 <div style={styles.fieldRow}>
-                  <label>Port</label>
-                  <input type="text" placeholder="587" style={styles.fieldInput} readOnly />
+                  <label>Vercel Deployments Integrations</label>
+                  <input 
+                    type="text" 
+                    value={backendConnected ? "Active (Vercel Project linked)" : "vercel-linked-deployment (Simulation)"} 
+                    style={styles.fieldInput} 
+                    readOnly 
+                  />
+                </div>
+                <p style={styles.note}>Supabase endpoints and Vercel personal tokens are securely mapped from backend <code>.env</code> file configurations.</p>
+              </div>
+
+              {/* Notifications and SMTP Credentials */}
+              <div style={styles.settingsCard}>
+                <h3>Alerting & Mail Channels</h3>
+                <div style={styles.fieldRow}>
+                  <label>Telegram Guardian alerts</label>
+                  <input type="text" value="telegram-bot-polling-active" style={styles.fieldInput} readOnly />
                 </div>
                 <div style={styles.fieldRow}>
-                  <label>Email Address</label>
-                  <input type="text" placeholder="alerts@greenhouse.com" style={styles.fieldInput} readOnly />
+                  <label>SMTP Email Sender</label>
+                  <input type="text" value="smtp-sender-active" style={styles.fieldInput} readOnly />
                 </div>
+                <p style={styles.note}>Telegram /status webhook handles and SMTP secure app passwords are initialized on system bootloader tasks.</p>
               </div>
             </div>
           </div>
@@ -399,7 +498,8 @@ const styles = {
   appContainer: {
     display: 'flex',
     minHeight: '100vh',
-    backgroundColor: '#F8F9FD'
+    backgroundColor: 'var(--color-bg-base)',
+    transition: 'background-color 0.2s'
   },
   mainContent: {
     marginLeft: '260px', // Matches sidebar width
@@ -459,14 +559,15 @@ const styles = {
   },
   settingsCard: {
     flex: '1 1 340px',
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #E2E8F0',
+    backgroundColor: 'var(--color-bg-card)',
+    border: '1px solid var(--color-border)',
     borderRadius: '20px',
     padding: '24px',
     boxShadow: '0 4px 12px rgba(0,0,0,0.01)',
     display: 'flex',
     flexDirection: 'column',
-    gap: '16px'
+    gap: '16px',
+    transition: 'background-color 0.2s, border 0.2s'
   },
   fieldRow: {
     display: 'flex',
@@ -476,16 +577,19 @@ const styles = {
   fieldInput: {
     height: '42px',
     borderRadius: '10px',
-    border: '1px solid #E2E8F0',
+    border: '1px solid var(--color-border)',
     padding: '0 14px',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'var(--color-bg-base)',
     fontSize: '13px',
-    color: '#64748B',
-    outline: 'none'
+    color: 'var(--color-text-body)',
+    outline: 'none',
+    transition: 'background-color 0.2s, border 0.2s, color 0.2s'
   },
   note: {
     fontSize: '11px',
-    color: '#94A3B8',
-    lineHeight: '1.4'
+    color: 'var(--color-text-muted)',
+    lineHeight: '1.4',
+    transition: 'color 0.2s'
   }
 };
+

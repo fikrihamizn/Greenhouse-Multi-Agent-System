@@ -1,0 +1,33 @@
+# Python Virtual Environments
+greenhouse/
+venv/
+.venv/
+env/
+ENV/
+
+# Sensitive files
+.env
+.env.*
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vite production build files
+dist/
+build/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# IDEs and editors configs
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp

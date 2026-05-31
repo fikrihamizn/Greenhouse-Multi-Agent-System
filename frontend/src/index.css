@@ -334,4 +334,316 @@ body.dark-mode .mockup-dashboard-frame {
   animation: spin 6s linear infinite;
 }
 
+/* 🌿 Zentra Flora Premium UI Styling Kit 🌿 */
+
+/* Layout & Grid Gradients */
+.dashboard-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.dashboard-row-top {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-row-top {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-row-bottom {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+/* Premium Zentra Card System */
+.zentra-card {
+  background-color: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.zentra-card:hover {
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-primary-medium);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-lg);
+}
+
+body.dark-mode .glass-card {
+  background: rgba(31, 41, 55, 0.7);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Custom Interactive Selectors & Inputs */
+.zentra-select-container {
+  display: flex;
+  align-items: center;
+  background-color: var(--color-bg-base);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0 12px;
+  height: 42px;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.zentra-select-container:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+  background-color: var(--color-bg-card);
+}
+
+.zentra-select {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-body);
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  padding-left: 6px;
+}
+
+.zentra-input {
+  height: 42px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  padding: 0 14px;
+  background-color: var(--color-bg-base);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-body);
+  outline: none;
+  width: 100%;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.zentra-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+  background-color: var(--color-bg-card);
+}
+
+/* Custom modern buttons */
+.zentra-btn {
+  height: 42px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.2);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.zentra-btn:hover {
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.3);
+  filter: brightness(1.05);
+}
+
+.zentra-btn:active {
+  transform: translateY(0.5px);
+}
+
+.zentra-btn-secondary {
+  height: 42px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg-card);
+  color: var(--color-text-body);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.zentra-btn-secondary:hover {
+  background-color: var(--color-bg-base);
+  border-color: var(--color-primary-medium);
+  color: var(--color-primary);
+  transform: translateY(-1.5px);
+}
+
+/* Tag buttons & selectors */
+.tag-selector-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-base);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tag-selector-btn:hover {
+  color: var(--color-primary);
+  background-color: var(--color-primary-light);
+}
+
+.tag-selector-btn.active {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.08);
+}
+
+/* Premium Chart SVG elements */
+.chart-bar-group {
+  cursor: pointer;
+}
+
+.chart-rect {
+  transition: fill 0.2s ease, y 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chart-hover-bg {
+  fill: transparent;
+  transition: fill 0.2s ease;
+}
+
+.chart-bar-group:hover .chart-hover-bg {
+  fill: rgba(124, 58, 237, 0.03);
+}
+
+.chart-tooltip {
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.chart-bar-group:hover .chart-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Agri Tasks custom styling */
+.task-row-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  background-color: var(--color-bg-card);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.task-row-item:hover {
+  border-color: var(--color-primary-medium);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.task-checkbox-box {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 2px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.task-checkbox-box:hover {
+  border-color: var(--color-primary-medium);
+}
+
+/* Beautiful dynamic overrides for ESP32 and Actuators */
+.hardware-glow-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.hardware-glow-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: inherit;
+  border: 2px solid transparent;
+  pointer-events: none;
+  transition: border-color 0.3s ease;
+}
+
+.hardware-glow-card:hover::after {
+  border-color: rgba(124, 58, 237, 0.15);
+}
+
+.actuator-row-interactive {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: var(--color-bg-base);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.actuator-row-interactive:hover {
+  transform: translateY(-1.5px);
+  border-color: rgba(124, 58, 237, 0.18);
+  box-shadow: var(--shadow-md);
+}
+
+.actuator-icon-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--color-bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  transition: all 0.25s ease;
+}
+
+.actuator-row-interactive.active .actuator-icon-circle {
+  background-color: transparent;
+}
+
+
 

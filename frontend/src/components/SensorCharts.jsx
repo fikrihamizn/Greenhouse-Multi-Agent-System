@@ -31,37 +31,38 @@ export default function SensorCharts({ history }) {
   };
 
   return (
-    <div style={styles.card}>
-      <div style={styles.header}>
-        <div style={styles.titleCol}>
-          <h3 style={styles.title}>Sensor Telemetry History</h3>
-          <span style={styles.subtitle}>Real-time historical timeline of environmental stats</span>
+    <div className="zentra-card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--color-text-title)', fontFamily: "'Outfit', sans-serif" }}>
+            Sensor Telemetry History
+          </h3>
+          <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontWeight: '500' }}>
+            Real-time historical timeline of environmental stats
+          </span>
         </div>
         
         {/* Metric Selector Tabs */}
-        <div style={styles.btnRow}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           {Object.keys(metricLabel).map((key) => (
             <button
               key={key}
               onClick={() => setSelectedMetric(key)}
-              style={{
-                ...styles.tabBtn,
-                ...(selectedMetric === key ? styles.tabBtnActive : {})
-              }}
+              className={`tag-selector-btn ${selectedMetric === key ? 'active' : ''}`}
             >
               {key === 'temperature' ? 'Temp' : key === 'soil_moisture' ? 'Moisture' : key === 'humidity' ? 'Humidity' : 'Light'}
             </button>
           ))}
-          <div style={styles.dropdown}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: '600', color: 'var(--color-text-body)', cursor: 'pointer' }}>
             <Calendar size={14} color="#64748B" />
-            <span style={styles.dropdownText}>Hourly</span>
+            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Hourly</span>
           </div>
         </div>
       </div>
 
       {/* SVG Bar Chart rendering */}
-      <div style={styles.chartWrapper}>
-        <svg viewBox="0 0 700 220" style={styles.svg}>
+      <div style={{ width: '100%', overflowX: 'auto' }}>
+        <svg viewBox="0 0 700 220" style={{ width: '100%', minWidth: '550px', height: 'auto' }}>
           <defs>
             <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
               <stop offset="0%" stopColor="#7C3AED" />
@@ -87,15 +88,14 @@ export default function SensorCharts({ history }) {
             const barWidth = Math.min(28, 480 / data.length);
 
             return (
-              <g key={idx} style={styles.barGroup}>
+              <g key={idx} className="chart-bar-group">
                 {/* Visual highlight on hover */}
                 <rect
                   x={x - 8}
                   y="10"
                   width={barWidth + 16}
                   height="170"
-                  fill="transparent"
-                  style={styles.hoverBackground}
+                  className="chart-hover-bg"
                 />
                 
                 {/* Beautiful round corner bars matching reference Zentra chart */}
@@ -107,7 +107,7 @@ export default function SensorCharts({ history }) {
                   rx="6"
                   ry="6"
                   fill={getBarColor(val)}
-                  style={styles.rectBar}
+                  className="chart-rect"
                 />
 
                 {/* Floating tooltip readout on hover */}
@@ -118,7 +118,7 @@ export default function SensorCharts({ history }) {
                   fill="var(--color-text-title)"
                   fontSize="11"
                   fontWeight="700"
-                  style={styles.tooltipText}
+                  className="chart-tooltip"
                 >
                   {val}
                 </text>
@@ -142,113 +142,3 @@ export default function SensorCharts({ history }) {
     </div>
   );
 }
-
-const styles = {
-  card: {
-    backgroundColor: 'var(--color-bg-card)',
-    border: '1px solid var(--color-border)',
-    borderRadius: '20px',
-    padding: '24px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.01)',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '20px',
-    transition: 'background-color 0.2s, border 0.2s'
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '16px',
-    flexWrap: 'wrap'
-  },
-  titleCol: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px'
-  },
-  title: {
-    fontSize: '16px',
-    fontWeight: '700',
-    color: 'var(--color-text-title)',
-    fontFamily: "'Outfit', sans-serif",
-    transition: 'color 0.2s'
-  },
-  subtitle: {
-    fontSize: '11px',
-    color: 'var(--color-text-muted)',
-    fontWeight: '500',
-    transition: 'color 0.2s'
-  },
-  btnRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    flexWrap: 'wrap'
-  },
-  tabBtn: {
-    padding: '6px 12px',
-    border: 'none',
-    borderRadius: '8px',
-    backgroundColor: 'var(--color-bg-base)',
-    color: 'var(--color-text-muted)',
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'all 0.2s'
-  },
-  tabBtnActive: {
-    backgroundColor: 'var(--color-primary-light)',
-    color: 'var(--color-primary)',
-    boxShadow: '0 2px 6px rgba(124,58,237,0.05)'
-  },
-  dropdown: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    backgroundColor: 'var(--color-bg-card)',
-    border: '1px solid var(--color-border)',
-    borderRadius: '8px',
-    padding: '6px 12px',
-    fontSize: '12px',
-    fontWeight: '600',
-    color: 'var(--color-text-body)',
-    cursor: 'pointer',
-    transition: 'all 0.2s'
-  },
-  dropdownText: {
-    fontFamily: "'Plus Jakarta Sans', sans-serif"
-  },
-  chartWrapper: {
-    width: '100%',
-    overflowX: 'auto'
-  },
-  svg: {
-    width: '100%',
-    minWidth: '550px',
-    height: 'auto'
-  },
-  barGroup: {
-    cursor: 'pointer'
-  },
-  rectBar: {
-    transition: 'all 0.3s ease-in-out'
-  },
-  hoverBackground: {
-    transition: 'fill 0.2s',
-    ':hover': {
-      fill: 'rgba(124, 58, 237, 0.02)'
-    }
-  },
-  tooltipText: {
-    opacity: 0,
-    transition: 'opacity 0.15s ease',
-    pointerEvents: 'none',
-    transform: 'translateY(2px)',
-    g: {
-      ':hover &': {
-        opacity: 1
-      }
-    }
-  }
-};

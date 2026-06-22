@@ -17,11 +17,17 @@ from app.agents.diagnostics import DiagnosticsAgent
 from app.agents.actuator import ActuatorControlAgent
 from app.services.telegram_bot import TelegramBotService
 from app.services.email_service import EmailService
-from app.model_config import get_active_model, get_all_models, set_active_model, get_agent_bindings, set_agent_binding
-from app.config import SUPABASE_URL, SUPABASE_KEY, IS_SUPABASE_CONFIGURED, IS_TELEGRAM_CONFIGURED, TELEGRAM_CHAT_ID
+from app.services.web_search import WebSearchService
+from app.model_config import (
+    get_active_model, get_all_models, set_active_model,
+    get_agent_bindings, set_agent_binding, find_installed_model
+)
+from app.config import (
+    SUPABASE_URL, SUPABASE_KEY, IS_SUPABASE_CONFIGURED,
+    IS_TELEGRAM_CONFIGURED, TELEGRAM_CHAT_ID, SEARCH_ENABLED
+)
 import threading
 import requests
-
 
 
 app = FastAPI(
@@ -47,6 +53,19 @@ async def startup_event():
 async def shutdown_event():
     TelegramBotService.stop_polling()
 
+
+def _get_ollama_models() -> tuple[bool, list]:
+    """Returns (connected, model_names_list) from local Ollama instance."""
+    try:
+        r = requests.get("http://127.0.0.1:11434/api/tags", timeout=0.8)
+        if r.status_code == 200:
+            names = [m["name"] for m in r.json().get("models", [])]
+            return True, names
+    except Exception:
+        pass
+    return False, []
+
+
 @app.get("/api/status")
 async def get_system_status():
     """Returns the complete current state of the greenhouse dashboard."""
@@ -56,35 +75,12 @@ async def get_system_status():
         global_state.growth_stage,
         global_state.age_days
     )
-    
-    # Check if Ollama is running and get installed models
-    ollama_connected = False
-    ollama_models = []
-    try:
-        r = requests.get("http://127.0.0.1:11434/api/tags", timeout=0.5)
-        if r.status_code == 200:
-            ollama_connected = True
-            ollama_models = [m["name"] for m in r.json().get("models", [])]
-    except Exception:
-        pass
-    
-    # Helper to check if model matches installed models
-    def is_installed(model_name: str) -> bool:
-        normalized = model_name.replace("-", ":").lower()
-        for m in ollama_models:
-            m_lower = m.lower()
-            if normalized in m_lower or m_lower in normalized:
-                return True
-            # Check base name (e.g. qwen3-vl vs qwen3-vl:4b)
-            base_sel = model_name.split("-")[0].lower()
-            base_m = m.split(":")[0].lower()
-            if base_sel == base_m:
-                return True
-        return False
+
+    ollama_connected, ollama_models = _get_ollama_models()
 
     active_model = get_active_model()
-    active_model_installed = is_installed(active_model) if ollama_connected else False
-    
+    active_model_installed = bool(find_installed_model(active_model, ollama_models)) if ollama_connected else False
+
     return {
         "current_plant": global_state.current_plant,
         "growth_stage": global_state.growth_stage,
@@ -106,7 +102,8 @@ async def get_system_status():
         "is_supabase_configured": IS_SUPABASE_CONFIGURED,
         "is_telegram_configured": IS_TELEGRAM_CONFIGURED,
         "telegram_chat_id_set": bool(TELEGRAM_CHAT_ID and TELEGRAM_CHAT_ID != "your_chat_id_here"),
-        "last_seen_chat_id": global_state.last_seen_chat_id
+        "last_seen_chat_id": global_state.last_seen_chat_id,
+        "search_enabled": SEARCH_ENABLED
     }
 
 @app.post("/api/model/select")
@@ -115,15 +112,14 @@ async def select_system_model(payload: Dict[str, str]):
     model_name = payload.get("model")
     if not model_name:
         raise HTTPException(status_code=400, detail="Model name is required")
-        
+
     success = set_active_model(model_name)
     if not success:
         raise HTTPException(status_code=400, detail=f"Model '{model_name}' is not supported")
-        
-    # Inject alert log of model shifting
+
     from app.services.telegram_bot import TelegramBotService
-    TelegramBotService.send_alert(f"🤖 System Model reconfigured. Active LLM/VLM backing shifted to '{model_name}'.")
-    
+    TelegramBotService.send_alert(f"🤖 System Model reconfigured. Active LLM/VLM backing shifted to '{get_active_model()}'.")
+
     return {
         "status": "Model Shifted",
         "active_model": get_active_model(),
@@ -137,14 +133,14 @@ async def bind_agent_model(payload: Dict[str, str]):
     model_name = payload.get("model")
     if not agent_name or not model_name:
         raise HTTPException(status_code=400, detail="Both 'agent' and 'model' are required fields")
-        
+
     success = set_agent_binding(agent_name, model_name)
     if not success:
         raise HTTPException(status_code=400, detail=f"Invalid agent '{agent_name}' or model '{model_name}'")
-        
+
     from app.services.telegram_bot import TelegramBotService
     TelegramBotService.send_alert(f"🤖 Agent Binding updated. '{agent_name}' agent is now powered by '{model_name}'.")
-    
+
     return {
         "status": "Success",
         "agent": agent_name,
@@ -157,7 +153,7 @@ def push_to_supabase_worker(reading: SensorReading):
     """Pushes physical sensor data directly into the user's Supabase database table."""
     if not IS_SUPABASE_CONFIGURED:
         return
-        
+
     try:
         url = f"{SUPABASE_URL}/rest/v1/sensor_readings"
         headers = {
@@ -200,10 +196,10 @@ async def update_sensor_readings(reading: SensorReading):
     """Receives JSON data from IoT sensors, evaluates thresholds, actuates components, and triggers alarms."""
     timestamp = datetime.now().strftime("%I:%M:%S %p")
     reading.timestamp = timestamp
-    
+
     # 1. Update live reading
     global_state.sensors = reading
-    
+
     # 2. Append to history queue (rolling max 12 items for clean chart renders)
     global_state.sensor_history.append({
         "time": timestamp.split(" ")[0][:-3],  # HH:MM format
@@ -214,17 +210,16 @@ async def update_sensor_readings(reading: SensorReading):
     })
     if len(global_state.sensor_history) > 12:
         global_state.sensor_history.pop(0)
-        
+
     # 2b. Push to Supabase database in a non-blocking background thread
     if IS_SUPABASE_CONFIGURED:
         sb_thread = threading.Thread(target=push_to_supabase_worker, args=(reading,), daemon=True)
         sb_thread.start()
 
-
     # 3. Invoke Actuator Control Agent
     prev_pump = global_state.actuators.pump
     prev_fan = global_state.actuators.fan
-    
+
     new_actuators, logs = ActuatorControlAgent.process_readings(
         reading, global_state.targets, global_state.actuators
     )
@@ -232,14 +227,11 @@ async def update_sensor_readings(reading: SensorReading):
 
     # 4. Dispatch Telegram and Email Alerts on hardware activation or threshold warnings
     for log in logs:
-        # Construct messages
         subject = f"Hardware State Change: {log['device']} {log['action']}"
         body_msg = f"The {log['device']} was {log['action'].lower()} automatically. Reason: {log['reason']}."
-        
-        # Fire agents
         TelegramBotService.send_alert(f"⚠️ *{subject}*\n{body_msg}")
         EmailService.send_alert(subject, body_msg)
-        
+
     return {
         "status": "Success",
         "actuators": global_state.actuators,
@@ -252,15 +244,13 @@ async def select_active_plant(selection: PlantSelection):
     global_state.current_plant = selection.plant_type
     global_state.growth_stage = selection.growth_stage
     global_state.age_days = selection.age_days
-    
-    # 1. Plant Expert Agent returns thresholds
+
     new_targets = PlantExpertAgent.get_targets(selection.plant_type, selection.growth_stage)
     global_state.targets = new_targets
-    
-    # 2. Notify system alert of plant target shifting
+
     alert_msg = f"Target bounds updated for {selection.plant_type} ({selection.growth_stage} phase). System reconfigured."
     TelegramBotService.send_alert(alert_msg)
-    
+
     return {
         "status": "Reconfigured",
         "plant": selection.plant_type,
@@ -268,181 +258,260 @@ async def select_active_plant(selection: PlantSelection):
         "targets": global_state.targets
     }
 
+
+# ─── VISION DIAGNOSTICS ─────────────────────────────────────────────────────
+
+_VISION_PROMPT = """You are a professional plant pathologist and agricultural expert analyzing a greenhouse plant leaf photo.
+Perform a comprehensive health assessment covering:
+1. Disease identification (fungal, bacterial, viral)
+2. Pest damage (spider mites, aphids, whitefly, thrips)
+3. Nutrient deficiencies (nitrogen, iron, magnesium, calcium)
+4. Abiotic stress (overwatering, drought, light burn, cold damage)
+
+Respond ONLY with valid JSON matching this exact schema (no markdown, no backticks):
+{
+  "status": "Infected" or "Healthy",
+  "diagnosis": "specific disease/pest/deficiency name, or 'Healthy Leaf'",
+  "category": "Disease" or "Pest" or "Nutrient Deficiency" or "Abiotic Stress" or "Healthy",
+  "severity": "Critical" or "High" or "Medium" or "Low" or "None",
+  "confidence": 87.5,
+  "symptoms": "visible symptoms observed in the image",
+  "affected_area_pct": 15,
+  "urgent_action": "most urgent recommended action",
+  "organic_treatment": "organic/biological treatment option",
+  "chemical_treatment": "chemical treatment option if needed",
+  "prevention": "preventive measures to avoid recurrence",
+  "recovery_days": 7
+}"""
+
+
 @app.post("/api/diagnose")
 async def upload_leaf_image(file: UploadFile = File(...)):
-    """Receives plant leaf images and returns AI Diagnostics analysis."""
+    """Receives plant leaf images and returns AI Diagnostics analysis using qwen3-vl:4b."""
     contents = await file.read()
     file_size = len(contents)
-    
-    # 1. Try real vision analysis using Ollama if connected and model is vision-capable
-    from app.model_config import get_agent_bindings
-    active_vision_model = get_agent_bindings().get("vision", "qwen3-vl-4b")
-    normalized = active_vision_model.replace("-", ":").lower()
-    
+
+    # Get the vision agent's assigned model
+    bindings = get_agent_bindings()
+    active_vision_model = bindings.get("vision", "qwen3-vl:4b")
+
     report = None
+
     try:
-        r_tags = requests.get("http://127.0.0.1:11434/api/tags", timeout=0.5)
-        if r_tags.status_code == 200:
-            models = [m["name"] for m in r_tags.json().get("models", [])]
-            matching_model = None
-            for m in models:
-                m_lower = m.lower()
-                if normalized in m_lower or m_lower in normalized or active_vision_model.split("-")[0].lower() in m_lower:
-                    matching_model = m
-                    break
-                    
+        ollama_connected, installed_models = _get_ollama_models()
+        if ollama_connected:
+            matching_model = find_installed_model(active_vision_model, installed_models)
+
             if matching_model:
                 import base64
                 import json
-                image_b64 = base64.b64encode(contents).decode("utf-8")
-                url = "http://127.0.0.1:11434/api/chat"
-                payload = {
-                    "model": matching_model,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": (
-                                "Analyze this greenhouse leaf photo and diagnose any plant disease. "
-                                "Respond ONLY in a valid JSON matching this schema exactly, and do not include any markdown backticks outside of the raw json block:\n"
-                                "{\n"
-                                "  \"status\": \"Infected\" or \"Healthy\",\n"
-                                "  \"diagnosis\": \"disease name / Healthy Leaf Tissues\",\n"
-                                "  \"severity\": \"High/Medium/Low/None\",\n"
-                                "  \"confidence\": 95.0,\n"
-                                "  \"symptoms\": \"visible spots, dust coating, or fine web markings\",\n"
-                                "  \"urgent_action\": \"ventilation adjustment, pruning, or isolation\",\n"
-                                "  \"organic_treatment\": \"neem oil or potassium bicarbonate\",\n"
-                                "  \"chemical_treatment\": \"sulfur or organic fungicides\"\n"
-                                "}"
-                            ),
-                            "images": [image_b64]
-                        }
-                    ],
-                    "options": {"temperature": 0.2},
-                    "stream": False,
-                    "format": "json"
-                }
-                # Timeout of 15s for vision inference
-                res = requests.post(url, json=payload, timeout=15)
-                if res.status_code == 200:
-                    raw_content = res.json().get("message", {}).get("content", "").strip()
-                    parsed = json.loads(raw_content)
-                    report = {
-                        "filename": file.filename,
-                        "file_size_kb": round(file_size / 1024, 1),
-                        "processed_by_model": matching_model,
-                        **parsed
+
+                # Verify model is actually vision-capable
+                model_info = get_all_models().get(active_vision_model, {})
+                if not model_info.get("is_vision_capable", True):
+                    print(f"[Vision Warning]: Bound model '{active_vision_model}' is not vision-capable. Falling back to simulation.")
+                else:
+                    image_b64 = base64.b64encode(contents).decode("utf-8")
+                    url = "http://127.0.0.1:11434/api/chat"
+                    payload = {
+                        "model": matching_model,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": _VISION_PROMPT,
+                                "images": [image_b64]
+                            }
+                        ],
+                        "options": {"temperature": 0.1},
+                        "stream": False,
+                        "format": "json"
                     }
+                    # 30s timeout for vision inference (larger model)
+                    res = requests.post(url, json=payload, timeout=30)
+                    if res.status_code == 200:
+                        raw_content = res.json().get("message", {}).get("content", "").strip()
+                        # Strip any accidental markdown fences
+                        if raw_content.startswith("```"):
+                            raw_content = raw_content.strip("`").lstrip("json").strip()
+                        parsed = json.loads(raw_content)
+                        report = {
+                            "filename": file.filename,
+                            "file_size_kb": round(file_size / 1024, 1),
+                            "processed_by_model": matching_model,
+                            **parsed
+                        }
+                    else:
+                        print(f"[Vision Error]: Ollama returned HTTP {res.status_code}")
+            else:
+                print(f"[Vision Warning]: Model '{active_vision_model}' not found in installed Ollama models.")
     except Exception as e:
         print(f"[Ollama Vision Fallback]: {str(e)}")
-        
+
     if not report:
         # Fallback to simulation
         report = DiagnosticsAgent.analyze_leaf_photo(file.filename, file_size)
-    
+
     # Append report to diagnostic history queue
     report["timestamp"] = datetime.now().strftime("%b %d, %I:%M %p")
     global_state.diagnostics_history.insert(0, report)
-    
+
     # Send telegram notification if diseased
     if report.get("status") == "Infected":
-        alert_msg = f"🏥 *DISEASE DETECTED* 🏥\nLeaf Photo: {report['filename']}\nDiagnosis: {report['diagnosis']}\nSeverity: {report['severity']}\nOrganic Cure: {report['organic_treatment']}"
+        severity = report.get("severity", "Unknown")
+        category = report.get("category", "Disease")
+        alert_msg = (
+            f"🏥 *{category.upper()} DETECTED* 🏥\n"
+            f"File: {report['filename']}\n"
+            f"Diagnosis: {report['diagnosis']}\n"
+            f"Severity: {severity}\n"
+            f"Action: {report.get('urgent_action', 'See dashboard')}"
+        )
         TelegramBotService.send_alert(alert_msg)
-        EmailService.send_alert(f"DISEASE DETECTED: {report['diagnosis']}", alert_msg.replace("*", ""))
+        EmailService.send_alert(f"{category} DETECTED: {report['diagnosis']}", alert_msg.replace("*", ""))
 
     return report
 
+
+# ─── WEB SEARCH ENDPOINT ───────────────────────────────────────────────────
+
+@app.get("/api/search")
+async def web_search(q: str, max_results: int = 4):
+    """Performs a DuckDuckGo web search with agricultural context enhancement."""
+    if not q or not q.strip():
+        raise HTTPException(status_code=400, detail="Query parameter 'q' is required")
+    if not SEARCH_ENABLED:
+        raise HTTPException(status_code=503, detail="Web search is disabled. Set SEARCH_ENABLED=true in .env")
+
+    results = WebSearchService.search(q.strip(), max_results=max_results)
+    return {
+        "query": q,
+        "results": results,
+        "count": len(results)
+    }
+
+
+# ─── CHAT ENDPOINT (with optional web search tool) ─────────────────────────
+
 @app.post("/api/chat")
-async def send_chat_message(payload: Dict[str, str]):
-    """Receives chat input from dashboard simulator and generates Bot response."""
+async def send_chat_message(payload: Dict[str, Any]):
+    """Receives chat input and generates AI response. Supports web search tool for real-time info."""
     msg_text = payload.get("message", "")
+    use_search = payload.get("use_search", False)  # explicit search toggle from UI
     if not msg_text:
         raise HTTPException(status_code=400, detail="Empty text message")
-        
+
     timestamp = datetime.now().strftime("%I:%M %p")
-    
+
     # Add User message
     global_state.chat_history.append(ChatMessage(
         sender="User",
         message=msg_text,
         timestamp=timestamp
     ))
-    
-    # Generate bot response
+
+    # ── Step 1: Check if web search is warranted ──
+    search_context = ""
+    search_results = []
+    should_search = use_search or (SEARCH_ENABLED and WebSearchService.is_search_intent(msg_text))
+
+    if should_search and SEARCH_ENABLED:
+        try:
+            search_results = WebSearchService.search(msg_text, max_results=3)
+            if search_results:
+                search_context = WebSearchService.format_for_llm_context(search_results)
+                print(f"[WebSearch]: Retrieved {len(search_results)} results for: {msg_text}")
+        except Exception as e:
+            print(f"[WebSearch Error]: {str(e)}")
+
+    # ── Step 2: Try Ollama LLM (expert model = gemma3:1b) ──
     reply_text = None
-    
-    # 1. Try real Ollama chatbot query
-    from app.model_config import get_agent_bindings
-    active_expert_model = get_agent_bindings().get("expert", "gemma3-1b")
-    normalized = active_expert_model.replace("-", ":").lower()
-    
+
+    bindings = get_agent_bindings()
+    active_expert_model = bindings.get("expert", "gemma3:1b")
+
     try:
-        r_tags = requests.get("http://127.0.0.1:11434/api/tags", timeout=0.5)
-        if r_tags.status_code == 200:
-            models = [m["name"] for m in r_tags.json().get("models", [])]
-            matching_model = None
-            for m in models:
-                m_lower = m.lower()
-                if normalized in m_lower or m_lower in normalized or active_expert_model.split("-")[0].lower() in m_lower:
-                    matching_model = m
-                    break
-                    
+        ollama_connected, installed_models = _get_ollama_models()
+        if ollama_connected:
+            matching_model = find_installed_model(active_expert_model, installed_models)
+
             if matching_model:
-                url = "http://127.0.0.1:11434/api/chat"
                 system_prompt = (
-                    "You are Zentra Flora, an AI Greenhouse Expert. Your sole duty is to answer questions about the smart greenhouse, "
-                    "plants, crops, soil, pests, watering schedules, and sensor readings. "
-                    "If the user asks an off-topic question (not related to agriculture, plants, or the greenhouse), "
-                    "you must politely refuse to answer and remind them that you are restricted to greenhouse operations only. "
-                    "Keep your response concise, helpful, and highly agricultural."
+                    "You are Zentra Flora, an AI Greenhouse Expert. "
+                    "Your specialty is answering questions about smart greenhouse operations, "
+                    "plants, crops, soil, pests, diseases, watering schedules, and sensor readings. "
+                    "If the user asks an off-topic question unrelated to agriculture, plants, or greenhouse systems, "
+                    "politely decline and redirect to your area of expertise. "
+                    "Be concise, practical, and helpful."
                 )
-                payload = {
+
+                # Build user message, optionally injecting web search context
+                user_content = msg_text
+                if search_context:
+                    user_content = (
+                        f"{search_context}\n\n"
+                        f"Using the above web search results as reference context, "
+                        f"please answer the following question:\n{msg_text}"
+                    )
+
+                url = "http://127.0.0.1:11434/api/chat"
+                ollama_payload = {
                     "model": matching_model,
                     "messages": [
                         {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": msg_text}
+                        {"role": "user", "content": user_content}
                     ],
                     "options": {"temperature": 0.5},
                     "stream": False
                 }
-                res = requests.post(url, json=payload, timeout=8)
+                res = requests.post(url, json=ollama_payload, timeout=12)
                 if res.status_code == 200:
                     reply_text = res.json().get("message", {}).get("content", "").strip()
     except Exception as e:
         print(f"[Ollama Chat Fallback]: {str(e)}")
-        
+
+    # ── Step 3: Fallback heuristic responses ──
     if not reply_text:
-        # Fallback to simulation
         msg = msg_text.lower()
         if "temp" in msg or "heat" in msg or "hot" in msg:
-            reply_text = "Keeping temperature within bounds is critical. Currently, targets are set per plant stage (e.g. 16-23°C for Fruiting Strawberries). If it gets too hot, the exhaust fan turns on automatically."
+            reply_text = "Keeping temperature within bounds is critical. Currently, targets are set per plant stage (e.g. 16–23°C for Fruiting Strawberries). If it gets too hot, the exhaust fan turns on automatically."
         elif "water" in msg or "soil" in msg or "moisture" in msg or "pump" in msg:
             reply_text = "Soil moisture target is set between 50% and 60% for optimal root intake. The water pump will trigger automatically if moisture falls below 50%."
         elif "light" in msg or "lux" in msg:
             reply_text = "Ambient light targets ensure optimal photosynthesis. The grow lights will supplement light if natural lux falls below target boundaries."
         elif "pest" in msg or "disease" in msg or "mildew" in msg or "mite" in msg:
-            reply_text = "To inspect for diseases, upload a leaf photo in the Diagnostics tab. Our vision VLM scans for spider mites, powdery mildew, and leaf spots."
+            reply_text = "To inspect for diseases, upload a leaf photo in the Diagnostics tab. Our vision model (qwen3-vl:4b) scans for spider mites, powdery mildew, leaf spots, and nutrient deficiencies."
+        elif "search" in msg or "find" in msg or "look up" in msg:
+            reply_text = "I can search the web for plant care information! Enable the web search toggle and ask your question — I'll fetch real-time results and summarize them for you."
         else:
-            reply_text = "I am your greenhouse agricultural expert. Ask me about your plants, target settings, schedules, or automatic actuators."
-            
-    # Add Bot reply
+            reply_text = "I am your greenhouse agricultural expert powered by Gemma 3. Ask me about your plants, target settings, schedules, or automatic actuators. I can also search the web for up-to-date plant care information."
+
+    # Add Bot reply with search metadata
+    bot_message = reply_text
+    if search_results:
+        sources = [r["url"] for r in search_results if r.get("url")]
+        if sources:
+            bot_message += f"\n\n📡 *Sources searched:* {len(search_results)} web results"
+
     global_state.chat_history.append(ChatMessage(
         sender="Bot",
-        message=reply_text,
+        message=bot_message,
         timestamp=timestamp
     ))
-    
+
     return {
         "user_message": msg_text,
-        "bot_reply": reply_text
+        "bot_reply": bot_message,
+        "search_used": bool(search_results),
+        "search_results": search_results if search_results else []
     }
+
 
 @app.post("/api/actuators/toggle")
 async def toggle_actuator(payload: Dict[str, Any]):
     """Allows manual override toggle of hardware devices."""
     device = payload.get("device")
     state = payload.get("state")
-    
+
     if device == "pump":
         global_state.actuators.pump = bool(state)
         action = "ON" if state else "OFF"
@@ -457,7 +526,7 @@ async def toggle_actuator(payload: Dict[str, Any]):
         TelegramBotService.send_alert(f"🔧 Manual Override: Grow Lights turned {action}.")
     else:
         raise HTTPException(status_code=400, detail="Invalid hardware device")
-        
+
     return {"status": "Updated", "actuators": global_state.actuators}
 
 
@@ -484,7 +553,6 @@ async def user_sign_up(payload: Dict[str, str]):
     if not username or not password or not email or "@" not in email:
         raise HTTPException(status_code=400, detail="Username, password, and a valid email address are all required")
 
-    # Check local duplicate username or email
     for user in MOCK_USERS_DB:
         if user["username"].lower() == username.lower():
             raise HTTPException(status_code=400, detail="Username is already taken")
@@ -499,7 +567,6 @@ async def user_sign_up(payload: Dict[str, str]):
         "second_name": second_name
     }
 
-    # 1. Push to Supabase users table if configured
     supabase_success = False
     if IS_SUPABASE_CONFIGURED:
         try:
@@ -511,11 +578,8 @@ async def user_sign_up(payload: Dict[str, str]):
                 "Prefer": "return=minimal"
             }
             insert_payload = {
-                "username": username,
-                "password": password,
-                "email": email,
-                "first_name": first_name,
-                "second_name": second_name
+                "username": username, "password": password, "email": email,
+                "first_name": first_name, "second_name": second_name
             }
             r = requests.post(url, json=insert_payload, headers=headers, timeout=5)
             if r.status_code in [200, 201]:
@@ -523,41 +587,18 @@ async def user_sign_up(payload: Dict[str, str]):
                 print(f"[Supabase Signup Success]: Registered user {username}.")
             else:
                 print(f"[Supabase Signup Warning]: Failed to insert into 'users' table (HTTP {r.status_code}: {r.text}).")
-                if r.status_code == 404:
-                    print("\n💡 SUPABASE TABLE SETUP REQUIRED 💡")
-                    print("Your Supabase database does not have the 'users' table with matching columns.")
-                    print("Please execute the following statement inside your Supabase SQL Editor:")
-                    print("""
-CREATE TABLE users (
-    id bigint generated by default as identity primary key,
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-    username text unique not null,
-    password text not null,
-    email text unique not null,
-    first_name text,
-    second_name text,
-    telegram_subscribed boolean default false
-);
-                    """)
         except Exception as e:
             print(f"[Supabase Signup Error]: Network or connection failed - {str(e)}")
 
-    # Always append to local in-memory storage for immediate session usage or fallback
     MOCK_USERS_DB.append(new_user)
-
-    # 2. Dispatch welcome email
     EmailService.send_welcome_email(email)
-    
-    # 3. Log alert
     TelegramBotService.send_alert(f"👤 New User Registered: {first_name} {second_name} ({username}). Welcome invite sent.")
 
     return {
         "status": "Success",
         "user": {
-            "username": username,
-            "email": email,
-            "first_name": first_name,
-            "second_name": second_name
+            "username": username, "email": email,
+            "first_name": first_name, "second_name": second_name
         },
         "supabase_registered": supabase_success,
         "telegram_link": "https://t.me/melmalebot"
@@ -575,7 +616,6 @@ async def user_sign_in_login(payload: Dict[str, str]):
 
     user_found = None
 
-    # 1. Query Supabase if configured
     if IS_SUPABASE_CONFIGURED:
         try:
             url = f"{SUPABASE_URL}/rest/v1/users?or=(email.eq.{identifier},username.eq.{identifier})"
@@ -603,7 +643,6 @@ async def user_sign_in_login(payload: Dict[str, str]):
         except Exception as e:
             print(f"[Supabase Auth Error]: Network or connection failed, falling back to local memory - {str(e)}")
 
-    # 2. Check local Mock Database as fallback
     if not user_found:
         for user in MOCK_USERS_DB:
             if user["username"].lower() == identifier.lower() or user["email"].lower() == identifier.lower():
@@ -621,7 +660,6 @@ async def user_sign_in_login(payload: Dict[str, str]):
     if not user_found:
         raise HTTPException(status_code=404, detail="User account not found")
 
-    # 3. Log alert
     TelegramBotService.send_alert(f"🔑 User Logged In: {user_found['first_name']} {user_found['second_name']} ({user_found['username']}). Dashboard session synchronized.")
 
     return {
@@ -637,41 +675,37 @@ async def save_telegram_chat_id(payload: Dict[str, str]):
     chat_id = payload.get("chat_id")
     if not chat_id:
         raise HTTPException(status_code=400, detail="Chat ID is required")
-    
+
     env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
     if not os.path.exists(env_path):
         env_path = os.path.abspath(".env")
-        
+
     try:
-        lines = []
         with open(env_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
-            
+
         chat_id_found = False
         for idx, line in enumerate(lines):
             if line.strip().startswith("TELEGRAM_CHAT_ID="):
                 lines[idx] = f"TELEGRAM_CHAT_ID={chat_id}\n"
                 chat_id_found = True
                 break
-                
+
         if not chat_id_found:
             lines.append(f"\nTELEGRAM_CHAT_ID={chat_id}\n")
-            
+
         with open(env_path, "w", encoding="utf-8") as f:
             f.writelines(lines)
-            
-        # Re-set in os.environ and config
+
         os.environ["TELEGRAM_CHAT_ID"] = str(chat_id)
-        
+
         import app.config as config
         config.TELEGRAM_CHAT_ID = str(chat_id)
         config.IS_TELEGRAM_CONFIGURED = True
-        
-        # Inject alert log of chat id update
+
         from app.services.telegram_bot import TelegramBotService
         TelegramBotService.send_alert(f"🤖 Telegram Bot Chat ID successfully configured to {chat_id}.")
-        
+
         return {"status": "Success", "chat_id": chat_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update .env: {str(e)}")
-

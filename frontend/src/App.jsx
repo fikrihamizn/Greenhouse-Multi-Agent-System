@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   LayoutDashboard, Settings, Sprout, Sun, Moon,
-  Thermometer, Droplet, Wind, Lightbulb, ShieldCheck,
-  ChevronRight, Info, LogOut, CloudOff, Activity,
+  Thermometer, Droplet, Wind, Lightbulb,
+  ChevronRight, Info, LogOut, CloudOff,
   Wifi, Power, MessageSquare, ClipboardList, Microscope,
-  BarChart2, UserCheck, Send, CheckCircle2, XCircle,
-  RefreshCw, Zap, Bell, ExternalLink, AlertTriangle, Inbox
+  BarChart2, Send, CheckCircle2, XCircle,
+  RefreshCw, Bell, ExternalLink, AlertTriangle,
+  Search, Globe, Leaf
 } from 'lucide-react';
 import SensorCharts from './components/SensorCharts';
 import GrowthStage from './components/GrowthStage';
@@ -49,17 +50,18 @@ export default function App() {
     alerts_history: [],
     diagnostics_history: [],
     tasks: [],
-    active_model: 'qwen3-vl-4b',
+    active_model: 'gemma3:1b',
     agent_bindings: {},
-    models: {}
+    models: {},
+    search_enabled: true
   });
 
-  // ── Sensor sim inputs (for dashboard IoT card) ──
+  // ── Sensor sim inputs ──
   const [simInputs, setSimInputs] = useState({ temperature: 24, humidity: 50, light: 220, soil_moisture: 42 });
   const [simSending, setSimSending] = useState(false);
-  const [simResult, setSimResult]   = useState(null); // { ok: bool, actions: [] }
+  const [simResult, setSimResult]   = useState(null);
 
-  // ── Plant selector state (for right panel on dashboard) ──
+  // ── Plant selector ──
   const PLANTS  = ['Strawberry', 'Tomato', 'Lettuce', 'Orchid', 'Basil'];
   const STAGES  = ['Seedling', 'Vegetative', 'Flowering', 'Fruiting'];
   const [selPlant, setSelPlant]  = useState('Strawberry');
@@ -67,11 +69,16 @@ export default function App() {
   const [selAge, setSelAge]      = useState(45);
   const [plantSaving, setPlantSaving] = useState(false);
 
+  // ── Web search ──
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
+
   useEffect(() => {
     document.body.classList.toggle('dark-mode', darkMode);
   }, [darkMode]);
 
-  // ── Poll /api/status every 3s ──
   const fetchStatus = async () => {
     try {
       const res = await fetch(`${API_BASE}/status`);
@@ -79,9 +86,7 @@ export default function App() {
         const d = await res.json();
         setData(d);
         setBackendConnected(true);
-        // Sync sim inputs to live sensor values
         if (d.sensors) setSimInputs({ temperature: d.sensors.temperature, humidity: d.sensors.humidity, light: d.sensors.light, soil_moisture: d.sensors.soil_moisture });
-        // Sync plant panel
         setSelPlant(d.current_plant);
         setSelStage(d.growth_stage);
         setSelAge(d.age_days);
@@ -141,14 +146,12 @@ export default function App() {
     setLoggedInUser(null); setLoggedInEmail('');
   };
 
-  // ── Toggle actuator → POST /api/actuators/toggle ──
   const handleToggleActuator = async (device, state) => {
     setData(prev => ({ ...prev, actuators: { ...prev.actuators, [device]: state } }));
     if (!backendConnected) return;
     try { await fetch(`${API_BASE}/actuators/toggle`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device, state }) }); fetchStatus(); } catch {}
   };
 
-  // ── Push sensor reading → POST /api/sensors ──
   const handleSimPush = async () => {
     setSimSending(true); setSimResult(null);
     if (!backendConnected) { setTimeout(() => { setSimSending(false); setSimResult({ ok: true, actions: [] }); }, 600); return; }
@@ -160,7 +163,6 @@ export default function App() {
     finally { setSimSending(false); }
   };
 
-  // ── Plant select → POST /api/plant/select ──
   const handlePlantApply = async () => {
     setPlantSaving(true);
     const payload = { plant_type: selPlant, growth_stage: selStage, age_days: selAge };
@@ -170,89 +172,134 @@ export default function App() {
     catch {} finally { setPlantSaving(false); }
   };
 
-  // ── Chat (page) ──
-  const handleSendChatMessage = async (message) => {
+  const handleSendChatMessage = async (message, useSearch = false) => {
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     setData(prev => ({ ...prev, chat_history: [...prev.chat_history, { sender: 'User', message, timestamp }] }));
-    if (!backendConnected) { setTimeout(() => { setData(prev => ({ ...prev, chat_history: [...prev.chat_history, { sender: 'Bot', message: 'Offline — backend not connected.', timestamp }] })); }, 500); return; }
-    try { const res = await fetch(`${API_BASE}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message }) }); if (res.ok) fetchStatus(); } catch {}
+    if (!backendConnected) {
+      setTimeout(() => { setData(prev => ({ ...prev, chat_history: [...prev.chat_history, { sender: 'Bot', message: 'Offline — backend not connected.', timestamp }] })); }, 500);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, use_search: useSearch }) });
+      if (res.ok) fetchStatus();
+    } catch {}
   };
 
-  // ── Diagnose ──
   const handleDiagnoseLeaf = async (formData) => {
     if (!backendConnected) {
-      const mock = { filename: 'leaf.png', file_size_kb: 450, diagnosis: 'Powdery Mildew Infection', status: 'Infected', severity: 'Medium', confidence: 94.2, symptoms: 'White powdery spots.', urgent_action: 'Reduce humidity.', organic_treatment: 'Neem Oil spray.', chemical_treatment: 'Sulfur fungicides.', timestamp: new Date().toLocaleDateString() };
-      setData(prev => ({ ...prev, diagnostics_history: [mock, ...prev.diagnostics_history] })); return mock;
+      const mock = {
+        filename: 'leaf.png', file_size_kb: 450, diagnosis: 'Powdery Mildew Infection',
+        status: 'Infected', category: 'Disease', severity: 'Medium', confidence: 94.2,
+        symptoms: 'White powdery spots on leaf surface.',
+        urgent_action: 'Reduce humidity and improve air circulation.',
+        organic_treatment: 'Neem oil spray, potassium bicarbonate.',
+        chemical_treatment: 'Sulfur-based fungicide.',
+        prevention: 'Maintain spacing, avoid overhead watering.',
+        affected_area_pct: 20, recovery_days: 10,
+        timestamp: new Date().toLocaleDateString()
+      };
+      setData(prev => ({ ...prev, diagnostics_history: [mock, ...prev.diagnostics_history] }));
+      return mock;
     }
-    try { const res = await fetch(`${API_BASE}/diagnose`, { method: 'POST', body: formData }); if (res.ok) { const r = await res.json(); fetchStatus(); return r; } } catch {}
+    try {
+      const res = await fetch(`${API_BASE}/diagnose`, { method: 'POST', body: formData });
+      if (res.ok) { const r = await res.json(); fetchStatus(); return r; }
+    } catch {}
+  };
+
+  const handleWebSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setSearching(true); setSearchError(''); setSearchResults([]);
+    try {
+      const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(searchQuery)}&max_results=5`);
+      if (res.ok) {
+        const r = await res.json();
+        setSearchResults(r.results || []);
+        if ((r.results || []).length === 0) setSearchError('No results found. Try a different query.');
+      } else {
+        const err = await res.json();
+        setSearchError(err.detail || 'Search failed.');
+      }
+    } catch { setSearchError('Search unavailable. Ensure backend is running.'); }
+    finally { setSearching(false); }
   };
 
   const sensors = data.sensors || { temperature: 24, humidity: 50, light: 220, soil_moisture: 42 };
 
+  // ── Helpers ──
+  const isInRange = (val, min, max) => val >= min && val <= max;
+
   // ─────────────────────────────────────────────────
-  // LOGIN / SIGNUP SCREEN (Handcrafted & Premium)
+  // LOGIN / SIGNUP SCREEN
   // ─────────────────────────────────────────────────
   if (!loggedInEmail) {
     return (
-      <div className="glass" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: 'var(--color-bg-base)', padding: 24 }}>
-        <div className="glass-card" style={{ padding: '40px 36px', width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-premium)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: 'var(--color-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(124,58,237,.12)' }}>
-            <Sprout size={28} color="var(--color-primary)" />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: 'var(--color-bg-base)', padding: 24 }}>
+        <div className="glass-card" style={{ padding: '36px 32px', width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 20, boxShadow: 'var(--shadow-premium)' }}>
+          {/* Logo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Leaf size={20} color="#fff" />
+            </div>
+            <div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--color-text-title)', letterSpacing: '-0.02em' }}>Zentra Flora</div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Greenhouse Dashboard</div>
+            </div>
           </div>
-          <div style={{ textAlign: 'center' }}>
-            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 26, fontWeight: 800, color: 'var(--color-text-title)', marginBottom: 4 }}>Zentra Flora</h2>
-            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', fontWeight: 500 }}>Automated Multi-Agent Greenhouse System</p>
-          </div>
-          <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)', width: '100%' }}>
+
+          {/* Tab bar */}
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)' }}>
             {['login', 'signup'].map(m => (
               <button key={m} onClick={() => setAuthMode(m)}
-                style={{ flex: 1, paddingBottom: 12, border: 'none', borderBottom: authMode === m ? '2.5px solid var(--color-primary)' : '2px solid transparent', backgroundColor: 'transparent', fontSize: 14, cursor: 'pointer', color: authMode === m ? 'var(--color-primary)' : 'var(--color-text-muted)', fontWeight: authMode === m ? 700 : 500, fontFamily: 'inherit' }}>
+                style={{ flex: 1, paddingBottom: 10, border: 'none', borderBottom: authMode === m ? '2px solid var(--color-primary)' : '2px solid transparent', backgroundColor: 'transparent', fontSize: 13, cursor: 'pointer', color: authMode === m ? 'var(--color-primary)' : 'var(--color-text-muted)', fontWeight: authMode === m ? 600 : 400, fontFamily: 'inherit', marginBottom: -1 }}>
                 {m === 'login' ? 'Sign In' : 'Sign Up'}
               </button>
             ))}
           </div>
+
           {authMode === 'login' ? (
-            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Username or Email</label>
+            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Username or Email</label>
                 <input type="text" placeholder="username or email" value={loginIdentifier} onChange={e => setLoginIdentifier(e.target.value)} required className="zentra-input" />
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Password</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Password</label>
                 <input type="password" placeholder="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required className="zentra-input" />
               </div>
-              <button type="submit" disabled={authenticating} className="zentra-btn" style={{ marginTop: 8 }}>{authenticating ? 'Signing in…' : 'Sign In'}</button>
+              <button type="submit" disabled={authenticating} className="zentra-btn" style={{ marginTop: 4 }}>{authenticating ? 'Signing in…' : 'Sign In'}</button>
             </form>
           ) : (
-            <form onSubmit={handleSignUp} style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%' }}>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flex: 1 }}>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>First Name</label>
-                  <input type="text" placeholder="First" value={signupFirstName} onChange={e => setSignupFirstName(e.target.value)} required className="zentra-input" />
+            <form onSubmit={handleSignUp} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>First</label>
+                  <input type="text" placeholder="First name" value={signupFirstName} onChange={e => setSignupFirstName(e.target.value)} required className="zentra-input" />
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flex: 1 }}>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Last Name</label>
-                  <input type="text" placeholder="Last" value={signupSecondName} onChange={e => setSignupSecondName(e.target.value)} required className="zentra-input" />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Last</label>
+                  <input type="text" placeholder="Last name" value={signupSecondName} onChange={e => setSignupSecondName(e.target.value)} required className="zentra-input" />
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Username</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Username</label>
                 <input type="text" placeholder="username" value={signupUsername} onChange={e => setSignupUsername(e.target.value)} required className="zentra-input" />
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Email</label>
-                <input type="email" placeholder="email address" value={signupEmail} onChange={e => setSignupEmail(e.target.value)} required className="zentra-input" />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Email</label>
+                <input type="email" placeholder="email@example.com" value={signupEmail} onChange={e => setSignupEmail(e.target.value)} required className="zentra-input" />
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Password</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Password</label>
                 <input type="password" placeholder="password" value={signupPassword} onChange={e => setSignupPassword(e.target.value)} required className="zentra-input" />
               </div>
-              <button type="submit" disabled={authenticating} className="zentra-btn" style={{ marginTop: 8 }}>{authenticating ? 'Creating account…' : 'Create Account'}</button>
+              <button type="submit" disabled={authenticating} className="zentra-btn" style={{ marginTop: 4 }}>{authenticating ? 'Creating account…' : 'Create Account'}</button>
             </form>
           )}
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, backgroundColor: 'var(--color-primary-light)', borderRadius: 12, padding: '10px 14px', fontSize: 11, color: 'var(--color-text-body)', lineHeight: 1.4, width: '100%', border: '1px solid var(--color-primary-medium)' }}>
-            <Info size={13} color="var(--color-primary)" style={{ flexShrink: 0, marginTop: 1 }} />
-            <span>After signup you'll receive a Telegram bot link: <strong>@melmalebot</strong></span>
+
+          <div className="info-banner neutral" style={{ fontSize: 11 }}>
+            <Info size={13} style={{ flexShrink: 0, marginTop: 1, color: 'var(--color-text-muted)' }} />
+            <span>Default credentials: <strong>admin</strong> / <strong>password123</strong></span>
           </div>
         </div>
       </div>
@@ -260,25 +307,26 @@ export default function App() {
   }
 
   // ─────────────────────────────────────────────────
-  // MAIN APP NAVIGATION (CSS Refactored)
+  // SIDEBAR ITEMS
   // ─────────────────────────────────────────────────
   const sidebarItems = [
     { id: 'dashboard',   icon: LayoutDashboard, label: 'Dashboard'   },
     { id: 'sensors',     icon: BarChart2,        label: 'Sensors'     },
-    { id: 'tasks',       icon: ClipboardList,    label: 'Task List'   },
+    { id: 'tasks',       icon: ClipboardList,    label: 'Tasks'       },
     { id: 'diagnostics', icon: Microscope,       label: 'Diagnostics' },
-    { id: 'chat',        icon: MessageSquare,    label: 'System Chat' },
+    { id: 'chat',        icon: MessageSquare,    label: 'Chat'        },
+    { id: 'search',      icon: Globe,            label: 'Web Search'  },
     { id: 'telegram',    icon: Bell,             label: 'Telegram'    },
     { id: 'settings',    icon: Settings,         label: 'Settings'    },
   ];
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--color-bg-base)', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--color-bg-base)', fontFamily: 'var(--font-primary)' }}>
 
-      {/* ── SIDEBAR CAPSULE ── */}
+      {/* ── SIDEBAR ── */}
       <aside className="sidebar-capsule">
-        <div style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'var(--color-bg-base)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)', marginBottom: 20 }}>
-          <Sprout size={20} color="var(--color-primary)" />
+        <div className="sidebar-logo">
+          <Leaf size={18} color="#fff" />
         </div>
 
         <div className="sidebar-track">
@@ -288,293 +336,284 @@ export default function App() {
             return (
               <button key={item.id} title={item.label} onClick={() => setActiveTab(item.id)}
                 className={`sidebar-circle-btn ${active ? 'active' : ''}`}>
-                <Icon size={20} />
+                <Icon size={18} />
               </button>
             );
           })}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => setDarkMode(!darkMode)} className="sidebar-circle-btn" style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }} title="Toggle theme">
-            {darkMode ? <Sun size={18} color="#FBBF24" /> : <Moon size={18} color="var(--color-primary)" />}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <button onClick={() => setDarkMode(!darkMode)} className="sidebar-circle-btn" title="Toggle theme">
+            {darkMode ? <Sun size={17} color="var(--amber-400)" /> : <Moon size={17} />}
           </button>
-          <div style={{ width: 38, height: 38, borderRadius: '50%', backgroundColor: 'var(--color-primary-light)', border: '2px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', cursor: 'pointer' }}>
-            <UserCheck size={16} color="var(--color-primary)" />
-            <div style={{ position: 'absolute', bottom: 1, right: 1, width: 9, height: 9, borderRadius: '50%', backgroundColor: 'var(--color-success)', border: '1.5px solid var(--color-bg-base)' }} />
+          <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: 'var(--color-primary-light)', border: '1px solid var(--color-primary-medium)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            title={loggedInUser?.username || 'User'}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-primary)' }}>
+              {(loggedInUser?.first_name || 'U').charAt(0).toUpperCase()}
+            </span>
           </div>
         </div>
       </aside>
 
-      {/* ── MAIN CONTENT AREA ── */}
-      <div style={{ marginLeft: 96, flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', padding: '20px 24px 28px 20px' }}>
+      {/* ── MAIN CONTENT ── */}
+      <div style={{ marginLeft: 64, flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', padding: '18px 22px 24px' }}>
 
-        {/* ══ DASHBOARD PAGE ══ */}
+        {/* ══ DASHBOARD ══ */}
         {activeTab === 'dashboard' && (
           <div className="dashboard-grid">
-
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 20, fontWeight: 800, color: 'var(--color-text-title)', letterSpacing: '-0.3px', marginRight: 10 }}>Zentra Flora</span>
-                {!backendConnected && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: 'var(--color-warning)', backgroundColor: 'var(--color-warning-light)', padding: '3px 8px', borderRadius: 20 }}><CloudOff size={11} /> Offline</span>}
+                <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text-title)', letterSpacing: '-0.02em' }}>Overview</span>
+                <span style={{ fontSize: 12, color: 'var(--color-text-muted)', marginLeft: 10 }}>
+                  {data.current_plant} · {data.growth_stage} · Day {data.age_days}
+                </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: backendConnected ? 'var(--color-success)' : 'var(--color-danger)' }} />
-                <span style={{ fontSize: 12, color: 'var(--color-text-muted)', fontWeight: 600 }}>{backendConnected ? 'API Connected' : 'Simulation Mode'}</span>
+                {!backendConnected && <span className="status-badge offline"><CloudOff size={11} />Offline</span>}
+                <span className={`status-badge ${backendConnected ? 'online' : 'offline'}`}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'currentColor', animation: backendConnected ? 'pulse-dot 2s infinite' : 'none' }} />
+                  {backendConnected ? 'Live' : 'Sim'}
+                </span>
               </div>
             </div>
 
-            {/* Top row: Greenhouse Hero + Plant Expert selectors */}
+            {/* ── Sensor quick stats row ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
+              {[
+                { label: 'Temperature', val: `${sensors.temperature}°C`, icon: <Thermometer size={14} />, ok: isInRange(sensors.temperature, data.targets.min_temp, data.targets.max_temp) },
+                { label: 'Humidity',    val: `${sensors.humidity}%`,     icon: <Droplet size={14} />,    ok: isInRange(sensors.humidity,    data.targets.min_humidity, data.targets.max_humidity) },
+                { label: 'Light',       val: `${sensors.light} lux`,     icon: <Lightbulb size={14} />,  ok: isInRange(sensors.light,       data.targets.min_light,    data.targets.max_light) },
+                { label: 'Soil',        val: `${sensors.soil_moisture}%`,icon: <Droplet size={14} />,    ok: isInRange(sensors.soil_moisture, data.targets.min_soil_moisture, data.targets.max_soil_moisture) },
+              ].map((s, i) => (
+                <div key={i} className="zentra-card" style={{ gap: 8, padding: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: s.ok ? 'var(--color-primary)' : 'var(--color-danger)' }}>{s.icon}</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: s.ok ? 'var(--color-success)' : 'var(--color-danger)', backgroundColor: s.ok ? 'var(--color-success-light)' : 'var(--color-danger-light)', padding: '2px 7px', borderRadius: 20 }}>
+                      {s.ok ? 'OK' : 'OUT'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-text-title)', letterSpacing: '-0.02em' }}>{s.val}</div>
+                  <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Top row */}
             <div className="dashboard-row-top">
-
-              {/* Greenhouse hero image panel */}
-              <div className="zentra-card" style={{ flex: '1 1 0', overflow: 'hidden', position: 'relative', minHeight: 240, padding: 0 }}>
-                <div style={{ position: 'absolute', top: 14, left: 14, zIndex: 5, backgroundColor: 'var(--color-bg-card)', borderRadius: 20, padding: '5px 12px', display: 'flex', alignItems: 'center', gap: 6, boxShadow: 'var(--shadow-sm)', fontSize: 12, fontWeight: 700, color: 'var(--color-text-title)', border: '1px solid var(--color-border)' }}>
-                  <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: 'var(--color-danger)' }} />
-                  <span style={{ fontSize: 11, fontWeight: 700 }}>+Live</span>
-                </div>
-                
-                <div style={{ position: 'absolute', top: 14, right: 14, zIndex: 5, display: 'flex', gap: 6 }}>
-                  {[
-                    { icon: <Thermometer size={11} />, val: `${sensors.temperature}°C`, ok: sensors.temperature >= data.targets.min_temp && sensors.temperature <= data.targets.max_temp },
-                    { icon: <Droplet size={11} />,     val: `${sensors.humidity}%`,     ok: sensors.humidity >= data.targets.min_humidity && sensors.humidity <= data.targets.max_humidity },
-                    { icon: <Lightbulb size={11} />,   val: `${sensors.light} lux`,     ok: sensors.light >= data.targets.min_light && sensors.light <= data.targets.max_light },
-                    { icon: <Droplet size={11} />,     val: `${sensors.soil_moisture}%`, ok: sensors.soil_moisture >= data.targets.min_soil_moisture && sensors.soil_moisture <= data.targets.max_soil_moisture },
-                  ].map((p, i) => (
-                    <div key={i} style={{ backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 20, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 4, backdropFilter: 'blur(4px)', border: p.ok ? '1px solid var(--color-border)' : '1px solid rgba(239,68,68,0.5)' }}>
-                      {p.icon}<span style={{ fontSize: 11, fontWeight: 600, color: p.ok ? '#0F172A' : 'var(--color-danger)' }}>{p.val}</span>
-                    </div>
-                  ))}
-                </div>
-                
-                <img src="/greenhouse_hero.png" alt="Smart Greenhouse" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', position: 'absolute', top: 0, left: 0 }} />
-
-                {/* Plant info overlay at bottom */}
-                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 5, background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)', padding: '20px 16px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: '#fff', fontFamily: "'Outfit', sans-serif" }}>{data.current_plant}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', backgroundColor: 'rgba(124,58,237,0.85)', borderRadius: 20, padding: '4px 10px', backdropFilter: 'blur(4px)' }}>
-                    {data.growth_stage} · Day {data.age_days}
+              {/* Greenhouse hero image */}
+              <div className="zentra-card" style={{ overflow: 'hidden', position: 'relative', minHeight: 220, padding: 0 }}>
+                <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 5, display: 'flex', gap: 6 }}>
+                  <span style={{ backgroundColor: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 11, fontWeight: 600, padding: '4px 9px', borderRadius: 20, backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#ef4444', animation: 'pulse-dot 1.5s infinite' }} />
+                    Live
                   </span>
+                </div>
+                <img src="/greenhouse_hero.png" alt="Greenhouse" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', position: 'absolute', top: 0, left: 0 }} />
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 5, background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 100%)', padding: '24px 16px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{data.current_plant}</div>
+                      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 2 }}>{data.growth_stage} phase · Day {data.age_days}</div>
+                    </div>
+                    <span style={{ backgroundColor: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: '#fff', fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 20, backdropFilter: 'blur(6px)' }}>
+                      {data.ollama_connected ? '🟢 Ollama Online' : '⚪ Ollama Offline'}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Plant Expert bounds adjustor */}
-              <div className="zentra-card" style={{ width: '100%', padding: '20px 16px 16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--color-text-title)', fontFamily: "'Outfit', sans-serif" }}>Plant Expert</span>
-                  <span style={{ fontSize: 10, color: 'var(--color-text-muted)', fontWeight: 600 }}>PlantExpertAgent</span>
+              {/* Plant Expert panel */}
+              <div className="zentra-card" style={{ padding: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text-title)' }}>Plant Expert</div>
+                  <span style={{ fontSize: 10, color: 'var(--color-text-muted)', backgroundColor: 'var(--color-bg-base)', padding: '2px 7px', borderRadius: 20, border: '1px solid var(--color-border)' }}>PlantExpertAgent</span>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Crop Species</label>
-                    <div className="zentra-select-container">
-                      <select value={selPlant} onChange={e => setSelPlant(e.target.value)} className="zentra-select">
-                        {PLANTS.map(p => <option key={p}>{p}</option>)}
-                      </select>
+                  {[
+                    { label: 'Crop', val: selPlant, setter: setSelPlant, options: PLANTS },
+                    { label: 'Stage', val: selStage, setter: setSelStage, options: STAGES },
+                  ].map(f => (
+                    <div key={f.label} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{f.label}</label>
+                      <div className="zentra-select-container">
+                        <select value={f.val} onChange={e => f.setter(e.target.value)} className="zentra-select">
+                          {f.options.map(o => <option key={o}>{o}</option>)}
+                        </select>
+                      </div>
                     </div>
-                  </div>
-                  
+                  ))}
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Growth Stage</label>
-                    <div className="zentra-select-container">
-                      <select value={selStage} onChange={e => setSelStage(e.target.value)} className="zentra-select">
-                        {STAGES.map(s => <option key={s}>{s}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Age (Days)</label>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Age (days)</label>
                     <div className="zentra-select-container">
                       <input type="number" min={1} value={selAge} onChange={e => setSelAge(parseInt(e.target.value) || 1)} className="zentra-select" style={{ border: 'none', background: 'transparent' }} />
                     </div>
                   </div>
 
-                  {/* Target thresholds display */}
-                  <div style={{ backgroundColor: 'var(--color-bg-base)', borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6, marginTop: 'auto' }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: 2 }}>Current Targets</div>
+                  {/* Targets */}
+                  <div style={{ backgroundColor: 'var(--color-bg-base)', borderRadius: 8, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Targets</div>
                     {[
-                      { label: 'Temp', val: `${data.targets.min_temp}–${data.targets.max_temp}°C` },
+                      { label: 'Temp',     val: `${data.targets.min_temp}–${data.targets.max_temp}°C` },
                       { label: 'Humidity', val: `${data.targets.min_humidity}–${data.targets.max_humidity}%` },
-                      { label: 'Light', val: `${data.targets.min_light}–${data.targets.max_light} lux` },
-                      { label: 'Soil', val: `${data.targets.min_soil_moisture}–${data.targets.max_soil_moisture}%` },
+                      { label: 'Light',    val: `${data.targets.min_light}–${data.targets.max_light} lux` },
+                      { label: 'Soil',     val: `${data.targets.min_soil_moisture}–${data.targets.max_soil_moisture}%` },
                     ].map(t => (
                       <div key={t.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: 11, color: 'var(--color-text-body)' }}>{t.label}</span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-primary)' }}>{t.val}</span>
+                        <span style={{ fontSize: 12, color: 'var(--color-text-body)' }}>{t.label}</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-primary)' }}>{t.val}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <button onClick={handlePlantApply} disabled={plantSaving} className="zentra-btn" style={{ width: '100%', marginTop: 8 }}>
-                  {plantSaving ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Zap size={13} />}
-                  {plantSaving ? 'Reconfiguring…' : 'Apply & Reconfigure'}
+                <button onClick={handlePlantApply} disabled={plantSaving} className="zentra-btn">
+                  {plantSaving ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <ChevronRight size={13} />}
+                  {plantSaving ? 'Reconfiguring…' : 'Apply Configuration'}
                 </button>
               </div>
             </div>
 
-            {/* Bottom Row: IoT simulator + Actuators + Alerts */}
+            {/* Bottom row */}
             <div className="dashboard-row-bottom">
-
-              {/* IoT Push device */}
+              {/* IoT Push */}
               <div className="zentra-card hardware-glow-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--color-text-title)', fontFamily: "'Outfit', sans-serif" }}>IoT Sensor Push</div>
-                    <div style={{ fontSize: 10, color: 'var(--color-text-muted)', fontWeight: 500, marginTop: 1 }}>ESP32-WROOM-32 · /api/sensors</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-title)' }}>IoT Sensor Push</div>
+                    <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 1 }}>ESP32 · /api/sensors</div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Wifi size={14} color={backendConnected ? 'var(--color-success)' : 'var(--color-text-muted)'} />
-                    <span style={{ fontSize: 11, fontWeight: 700, color: backendConnected ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
-                      {backendConnected ? 'Online' : 'Offline'}
-                    </span>
-                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: backendConnected ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
+                    <Wifi size={14} style={{ verticalAlign: 'middle', marginRight: 3 }} />{backendConnected ? 'Online' : 'Offline'}
+                  </span>
                 </div>
 
-                {/* ESP32 hardware board render */}
-                <div style={{ display: 'flex', justifyContent: 'center', backgroundColor: 'var(--color-bg-base)', borderRadius: 14, padding: '10px 0', border: '1px solid var(--color-border)' }}>
-                  <img src="/esp32_board.png" alt="ESP32" style={{ height: 80, objectFit: 'contain', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.08))' }} />
-                </div>
-
-                {/* Sensor values inputs */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   {[
-                    { key: 'temperature', label: 'Temp (°C)', icon: <Thermometer size={11} color="var(--color-primary)" /> },
-                    { key: 'humidity',    label: 'Humidity (%)', icon: <Droplet size={11} color="#38BDF8" /> },
-                    { key: 'light',       label: 'Light (lux)', icon: <Lightbulb size={11} color="#FBBF24" /> },
-                    { key: 'soil_moisture', label: 'Soil (%)', icon: <Droplet size={11} color="var(--color-success)" /> },
+                    { key: 'temperature', label: 'Temp °C',  icon: <Thermometer size={12} color="var(--color-primary)" /> },
+                    { key: 'humidity',    label: 'Humidity %', icon: <Droplet size={12} color="var(--sky-400)" /> },
+                    { key: 'light',       label: 'Light lux',  icon: <Lightbulb size={12} color="var(--amber-400)" /> },
+                    { key: 'soil_moisture', label: 'Soil %',  icon: <Droplet size={12} color="var(--green-500)" /> },
                   ].map(f => (
-                    <div key={f.key} style={{ backgroundColor: 'var(--color-bg-base)', borderRadius: 10, padding: '8px 10px', border: '1px solid var(--color-border)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
-                        {f.icon}<span style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-text-muted)' }}>{f.label}</span>
+                    <div key={f.key} style={{ backgroundColor: 'var(--color-bg-base)', borderRadius: 8, padding: '9px 11px', border: '1px solid var(--color-border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                        {f.icon}<span style={{ fontSize: 10, fontWeight: 600, color: 'var(--color-text-muted)' }}>{f.label}</span>
                       </div>
                       <input type="number" value={simInputs[f.key]}
                         onChange={e => setSimInputs(prev => ({ ...prev, [f.key]: parseFloat(e.target.value) || 0 }))}
-                        style={{ width: '100%', border: 'none', background: 'transparent', fontSize: 14, fontWeight: 800, color: 'var(--color-text-title)', outline: 'none' }} />
+                        style={{ width: '100%', border: 'none', background: 'transparent', fontSize: 16, fontWeight: 700, color: 'var(--color-text-title)', outline: 'none' }} />
                     </div>
                   ))}
                 </div>
 
-                <button onClick={handleSimPush} disabled={simSending} className="zentra-btn" style={{ height: 38 }}>
+                <button onClick={handleSimPush} disabled={simSending} className="zentra-btn">
                   {simSending ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={13} />}
-                  Push to Backend
+                  Push Readings
                 </button>
 
-                {/* Result banner feedback */}
                 {simResult && (
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, backgroundColor: simResult.ok ? 'var(--color-success-light)' : 'var(--color-danger-light)', borderRadius: 10, padding: '8px 10px', border: `1px solid ${simResult.ok ? 'var(--color-success)' : 'var(--color-danger)'}30` }}>
-                    {simResult.ok ? <CheckCircle2 size={13} color="var(--color-success)" style={{ flexShrink: 0, marginTop: 2 }} /> : <XCircle size={13} color="var(--color-danger)" style={{ flexShrink: 0, marginTop: 2 }} />}
-                    <span style={{ fontSize: 11, color: simResult.ok ? '#065F46' : '#991B1B', fontWeight: 600 }}>
+                  <div className={`info-banner ${simResult.ok ? 'success' : 'danger'}`}>
+                    {simResult.ok ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
+                    <span style={{ fontSize: 11 }}>
                       {simResult.ok
                         ? simResult.actions.length > 0
                           ? simResult.actions.map(a => `${a.device} ${a.action}`).join(' · ')
-                          : 'Readings accepted. All in range.'
+                          : 'Accepted — all values in range.'
                         : 'Failed to push readings.'}
                     </span>
                   </div>
                 )}
               </div>
 
-              {/* Actuator override switches */}
+              {/* Actuator Control */}
               <div className="zentra-card hardware-glow-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--color-text-title)', fontFamily: "'Outfit', sans-serif" }}>Actuator Control</div>
-                    <div style={{ fontSize: 10, color: 'var(--color-text-muted)', fontWeight: 500, marginTop: 1 }}>ActuatorControlAgent · manual overrides</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-title)' }}>Actuators</div>
+                    <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 1 }}>Manual override · ActuatorControlAgent</div>
                   </div>
-                  <Power size={16} color={Object.values(data.actuators).some(Boolean) ? 'var(--color-primary)' : 'var(--color-text-muted)'} />
+                  <Power size={15} color={Object.values(data.actuators).some(Boolean) ? 'var(--color-primary)' : 'var(--color-text-muted)'} />
                 </div>
 
-                {/* Three device toggle controls */}
                 {[
-                  { key: 'pump',        label: 'Water Pump',      sub: 'Soil moisture control',   icon: <Droplet size={18} />, onColor: '#38BDF8', onBg: '#EFF6FF' },
-                  { key: 'fan',         label: 'Ventilation Fan', sub: 'Temp & humidity control', icon: <Wind size={18} />,   onColor: 'var(--color-primary)', onBg: 'var(--color-primary-light)' },
-                  { key: 'grow_lights', label: 'Grow Lights',     sub: 'Light intensity control', icon: <Sun size={18} />,    onColor: '#FBBF24', onBg: '#FFFBEB' },
+                  { key: 'pump',        label: 'Water Pump',      sub: 'Soil moisture',   icon: <Droplet size={16} /> },
+                  { key: 'fan',         label: 'Ventilation Fan', sub: 'Temp & humidity', icon: <Wind size={16} /> },
+                  { key: 'grow_lights', label: 'Grow Lights',     sub: 'Light intensity', icon: <Sun size={16} /> },
                 ].map(act => {
                   const on = data.actuators[act.key];
                   return (
                     <div key={act.key} className={`actuator-row-interactive ${on ? 'active' : ''}`}
-                      style={{
-                        backgroundColor: on ? act.onBg : 'var(--color-bg-base)',
-                        borderColor: on ? `${act.onColor}35` : 'var(--color-border)',
-                      }}
                       onClick={() => handleToggleActuator(act.key, !on)}>
-                      <div className="actuator-icon-circle" style={{
-                        borderColor: on ? `${act.onColor}40` : 'var(--color-border)',
-                        color: on ? act.onColor : 'var(--color-text-muted)'
-                      }}>
-                        {act.icon}
-                      </div>
+                      <div className="actuator-icon-circle">{act.icon}</div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-title)' }}>{act.label}</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-title)' }}>{act.label}</div>
                         <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 1 }}>{act.sub}</div>
                       </div>
-                      
-                      {/* Stylized sliding checkbox toggle pill */}
-                      <div style={{ width: 36, height: 20, borderRadius: 20, backgroundColor: on ? act.onColor : 'var(--color-border)', padding: 2, display: 'flex', alignItems: 'center', transition: 'background 0.2s', flexShrink: 0 }}>
-                        <div style={{ width: 16, height: 16, borderRadius: '50%', backgroundColor: '#fff', transform: on ? 'translateX(16px)' : 'translateX(0)', transition: 'transform 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }} />
+                      <div style={{ width: 34, height: 19, borderRadius: 20, backgroundColor: on ? 'var(--color-primary)' : 'var(--color-border)', padding: 2, display: 'flex', alignItems: 'center', transition: 'background 0.2s', flexShrink: 0 }}>
+                        <div style={{ width: 15, height: 15, borderRadius: '50%', backgroundColor: '#fff', transform: on ? 'translateX(15px)' : 'translateX(0)', transition: 'transform 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }} />
                       </div>
                     </div>
                   );
                 })}
 
-                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', textAlign: 'center', paddingTop: 4 }}>
-                  Auto-control via ActuatorControlAgent when sensor readings are pushed
+                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', textAlign: 'center' }}>
+                  Auto-controlled by ActuatorControlAgent on sensor push
                 </div>
               </div>
 
-              {/* Alert history notification panel */}
+              {/* Alerts */}
               <div className="zentra-card hardware-glow-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--color-text-title)', fontFamily: "'Outfit', sans-serif" }}>Notifications</div>
-                    <div style={{ fontSize: 10, color: 'var(--color-text-muted)', fontWeight: 500, marginTop: 1 }}>Telegram + Email · remote access</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-title)' }}>Notifications</div>
+                    <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 1 }}>Telegram + Email</div>
                   </div>
                   <a href="https://t.me/melmalebot" target="_blank" rel="noreferrer"
-                    style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-primary)', textDecoration: 'none', backgroundColor: 'var(--color-primary-light)', padding: '4px 10px', borderRadius: 20, border: '1px solid var(--color-primary-medium)' }}>
-                    Open Telegram →
+                    style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none', backgroundColor: 'var(--color-primary-light)', padding: '3px 9px', borderRadius: 20, border: '1px solid var(--color-primary-medium)' }}>
+                    Telegram →
                   </a>
                 </div>
 
-                {/* Remote command notification */}
-                <div style={{ backgroundColor: 'var(--color-success-light)', borderRadius: 12, padding: '10px 12px', border: '1px solid var(--color-success)22' }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--color-success)', textTransform: 'uppercase', marginBottom: 4 }}>📱 Remote Control Active</div>
-                  <p style={{ fontSize: 11, color: 'var(--color-text-body)', margin: 0, lineHeight: 1.5 }}>Text <strong>@melmalebot</strong> on Telegram anytime to check sensors, trigger actuators, or get reports.</p>
+                <div className="info-banner success" style={{ fontSize: 11 }}>
+                  <CheckCircle2 size={12} />
+                  <span>Remote control via <strong>@melmalebot</strong> — send /status, /pump_on, or a leaf photo.</span>
                 </div>
 
-                {/* Recent notification alerts lists */}
                 <div style={{ flex: 1, overflowY: 'auto' }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>Recent Alerts ({data.alerts_history.length})</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                    Recent ({data.alerts_history.length})
+                  </div>
                   {data.alerts_history.length === 0 ? (
-                    <div style={{ fontSize: 11, color: 'var(--color-text-muted)', textAlign: 'center', padding: '16px 0' }}>No alerts fired — all parameters stable</div>
+                    <div style={{ fontSize: 12, color: 'var(--color-text-muted)', textAlign: 'center', padding: '12px 0' }}>No alerts — all parameters stable</div>
                   ) : (
-                    data.alerts_history.slice(0, 3).map((alert, i) => (
-                      <div key={i} style={{ padding: '8px 10px', backgroundColor: 'var(--color-warning-light)', borderRadius: 10, marginBottom: 5, border: '1px solid var(--color-warning)20' }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-warning)' }}>{alert.subject}</div>
-                        <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 2 }}>{alert.timestamp}</div>
+                    data.alerts_history.slice(0, 4).map((alert, i) => (
+                      <div key={i} className="info-banner warning" style={{ marginBottom: 6, fontSize: 11 }}>
+                        <AlertTriangle size={11} style={{ flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{alert.subject}</div>
+                          <div style={{ opacity: 0.7, marginTop: 1 }}>{alert.timestamp}</div>
+                        </div>
                       </div>
                     ))
                   )}
                 </div>
               </div>
-
             </div>
           </div>
         )}
 
-        {/* ══ SENSORS PAGE ══ */}
+        {/* ══ SENSORS ══ */}
         {activeTab === 'sensors' && (
-          <div className="page-shell" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <h2 className="page-title" style={{ fontFamily: "'Outfit', sans-serif", fontSize: 24, fontWeight: 800, color: 'var(--color-text-title)' }}>
-              Sensor Telemetry & Plant Configuration
-            </h2>
-            {!backendConnected && <div style={{ display: 'flex', alignItems: 'center', gap: 8, backgroundColor: 'var(--color-warning-light)', border: '1px solid var(--color-warning)30', borderRadius: 12, padding: '10px 16px', fontSize: 12, fontWeight: 600, color: 'var(--color-warning)' }}><CloudOff size={13} /> Offline mode — using mock data</div>}
-            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-              <div style={{ flex: '2 1 500px' }}>
-                <SensorCharts history={data.sensor_history} />
-              </div>
+          <div className="page-shell">
+            <div>
+              <h2 className="page-title">Sensor Telemetry</h2>
+              <p className="page-subtitle">Real-time sensor data and plant configuration</p>
+            </div>
+            {!backendConnected && <div className="info-banner warning"><CloudOff size={13} />Offline mode — using simulated data</div>}
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ flex: '2 1 500px' }}><SensorCharts history={data.sensor_history} /></div>
               <div style={{ flex: '1 1 300px' }}>
                 <GrowthStage currentPlant={data.current_plant} growthStage={data.growth_stage} ageDays={data.age_days} sensors={data.sensors} targets={data.targets}
                   onSelectPlant={async (payload) => {
@@ -587,124 +626,206 @@ export default function App() {
           </div>
         )}
 
-        {/* ══ TASKS PAGE ══ */}
+        {/* ══ TASKS ══ */}
         {activeTab === 'tasks' && (
-          <div className="page-shell" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <h2 className="page-title" style={{ fontFamily: "'Outfit', sans-serif", fontSize: 24, fontWeight: 800, color: 'var(--color-text-title)' }}>
-              Agri Task Schedule
-            </h2>
-            <p style={{ fontSize: 13, color: 'var(--color-text-body)', marginBottom: 16 }}>Daily actions generated by <strong>TaskSchedulerAgent</strong> based on {data.current_plant} at {data.growth_stage} stage (Day {data.age_days}).</p>
-            {!backendConnected && <div style={{ display: 'flex', alignItems: 'center', gap: 8, backgroundColor: 'var(--color-warning-light)', border: '1px solid var(--color-warning)30', borderRadius: 12, padding: '10px 16px', fontSize: 12, fontWeight: 600, color: 'var(--color-warning)' }}><CloudOff size={13} /> Offline mode</div>}
+          <div className="page-shell">
+            <div>
+              <h2 className="page-title">Task Schedule</h2>
+              <p className="page-subtitle">Daily tasks by <strong>TaskSchedulerAgent</strong> (llama3.2:1b) for {data.current_plant} · {data.growth_stage} · Day {data.age_days}</p>
+            </div>
+            {!backendConnected && <div className="info-banner warning"><CloudOff size={13} />Offline mode</div>}
             <TaskList tasks={data.tasks} currentPlant={data.current_plant} stage={data.growth_stage} ageDays={data.age_days} />
           </div>
         )}
 
-        {/* ══ DIAGNOSTICS PAGE ══ */}
+        {/* ══ DIAGNOSTICS ══ */}
         {activeTab === 'diagnostics' && (
-          <div className="page-shell" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <h2 className="page-title" style={{ fontFamily: "'Outfit', sans-serif", fontSize: 24, fontWeight: 800, color: 'var(--color-text-title)' }}>
-              AI Leaf Diagnostics
-            </h2>
-            <p style={{ fontSize: 13, color: 'var(--color-text-body)', marginBottom: 16 }}>Upload a leaf photo. The <strong>DiagnosticsAgent</strong> ({data.active_model}) will identify diseases, pests, or confirm health.</p>
-            {!backendConnected && <div style={{ display: 'flex', alignItems: 'center', gap: 8, backgroundColor: 'var(--color-warning-light)', border: '1px solid var(--color-warning)30', borderRadius: 12, padding: '10px 16px', fontSize: 12, fontWeight: 600, color: 'var(--color-warning)' }}><CloudOff size={13} /> Offline — using simulated diagnosis</div>}
+          <div className="page-shell">
+            <div>
+              <h2 className="page-title">Plant Health Diagnostics</h2>
+              <p className="page-subtitle">Upload a leaf photo — <strong>qwen3-vl:4b</strong> will analyze for disease, pests, nutrient deficiency, and abiotic stress.</p>
+            </div>
+            {!backendConnected && <div className="info-banner warning"><CloudOff size={13} />Offline — using simulated diagnosis</div>}
             <Diagnostics onDiagnose={handleDiagnoseLeaf} history={data.diagnostics_history} />
           </div>
         )}
 
-        {/* ══ SYSTEM CHATBOT PAGE ══ */}
+        {/* ══ CHAT ══ */}
         {activeTab === 'chat' && (
-          <div className="page-shell" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <h2 className="page-title" style={{ fontFamily: "'Outfit', sans-serif", fontSize: 24, fontWeight: 800, color: 'var(--color-text-title)' }}>
-              System Chatbot
-            </h2>
-            <p style={{ fontSize: 13, color: 'var(--color-text-body)', marginBottom: 16 }}>
-              An in-app AI assistant restricted to greenhouse system queries only.
-              Type commands like <code style={{ backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)', padding: '1px 6px', borderRadius: 4, fontSize: 12 }}>/status</code> or <code style={{ backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)', padding: '1px 6px', borderRadius: 4, fontSize: 12 }}>/tasks</code> to query the system.
-            </p>
-            {!backendConnected && <div style={{ display: 'flex', alignItems: 'center', gap: 8, backgroundColor: 'var(--color-warning-light)', border: '1px solid var(--color-warning)30', borderRadius: 12, padding: '10px 16px', fontSize: 12, fontWeight: 600, color: 'var(--color-warning)' }}><CloudOff size={13} /> Offline mode — responses are simulated</div>}
-            <ChatDrawer chatHistory={data.chat_history} onSendChatMessage={handleSendChatMessage} />
+          <div className="page-shell">
+            <div>
+              <h2 className="page-title">System Chat</h2>
+              <p className="page-subtitle">AI greenhouse assistant powered by <strong>gemma3:1b</strong>. Enable web search to fetch real-time plant care info.</p>
+            </div>
+            {!backendConnected && <div className="info-banner warning"><CloudOff size={13} />Offline — responses are simulated</div>}
+            <ChatDrawer chatHistory={data.chat_history} onSendChatMessage={handleSendChatMessage} searchEnabled={data.search_enabled} />
           </div>
         )}
 
-        {/* ══ TELEGRAM NOTIFICATIONS PAGE ══ */}
-        {activeTab === 'telegram' && (
-          <div className="page-shell" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <h2 className="page-title" style={{ fontFamily: "'Outfit', sans-serif", fontSize: 24, fontWeight: 800, color: 'var(--color-text-title)' }}>
-              Telegram Notifications
-            </h2>
-            <p style={{ fontSize: 13, color: 'var(--color-text-body)', marginBottom: 16 }}>
-              Telegram works <strong>without opening this app</strong>. The bot sends automatic alerts and responds to commands from your phone.
-            </p>
-            {!backendConnected && <div style={{ display: 'flex', alignItems: 'center', gap: 8, backgroundColor: 'var(--color-warning-light)', border: '1px solid var(--color-warning)30', borderRadius: 12, padding: '10px 16px', fontSize: 12, fontWeight: 600, color: 'var(--color-warning)' }}><CloudOff size={13} /> Backend offline — alert delivery paused</div>}
+        {/* ══ WEB SEARCH ══ */}
+        {activeTab === 'search' && (
+          <div className="page-shell">
+            <div>
+              <h2 className="page-title">Web Search</h2>
+              <p className="page-subtitle">Search the web for agricultural info, plant care guides, and treatment methods.</p>
+            </div>
 
-            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-              {/* Bot overview card */}
+            {/* Search bar */}
+            <div className="zentra-card" style={{ padding: 16 }}>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ flex: 1, position: 'relative' }}>
+                  <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+                  <input
+                    type="text"
+                    placeholder="e.g. tomato blight treatment, powdery mildew organic cure..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleWebSearch()}
+                    className="zentra-input"
+                    style={{ paddingLeft: 36 }}
+                  />
+                </div>
+                <button onClick={handleWebSearch} disabled={searching || !backendConnected} className="zentra-btn" style={{ width: 100, flexShrink: 0 }}>
+                  {searching ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Search size={13} />}
+                  {searching ? 'Searching' : 'Search'}
+                </button>
+              </div>
+              {!backendConnected && (
+                <div className="info-banner warning" style={{ fontSize: 11 }}>
+                  <CloudOff size={12} />Backend offline — web search requires the backend server.
+                </div>
+              )}
+            </div>
+
+            {/* Error */}
+            {searchError && (
+              <div className="info-banner danger"><AlertTriangle size={13} />{searchError}</div>
+            )}
+
+            {/* Results */}
+            {searchResults.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>
+                  {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for "<strong>{searchQuery}</strong>"
+                </div>
+                {searchResults.map((r, i) => (
+                  <div key={i} className="search-result-item">
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                      <div>
+                        <a href={r.url} target="_blank" rel="noreferrer"
+                          style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none', lineHeight: 1.4 }}>
+                          {r.title}
+                        </a>
+                        <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2, marginBottom: 6 }}>{r.url}</div>
+                        <div style={{ fontSize: 13, color: 'var(--color-text-body)', lineHeight: 1.6 }}>{r.snippet}</div>
+                      </div>
+                      <a href={r.url} target="_blank" rel="noreferrer" style={{ flexShrink: 0, color: 'var(--color-text-muted)', marginTop: 3 }}>
+                        <ExternalLink size={14} />
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Quick search suggestions */}
+            {searchResults.length === 0 && !searchError && !searching && (
+              <div className="zentra-card" style={{ padding: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: 10 }}>Suggested searches</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {[
+                    'tomato leaf blight treatment',
+                    'powdery mildew organic cure',
+                    'strawberry nutrient deficiency',
+                    'spider mites greenhouse control',
+                    'nitrogen deficiency symptoms',
+                    'overwatering plant signs',
+                  ].map(q => (
+                    <button key={q} className="tag-selector-btn" onClick={() => { setSearchQuery(q); setTimeout(handleWebSearch, 100); }}>
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ TELEGRAM ══ */}
+        {activeTab === 'telegram' && (
+          <div className="page-shell">
+            <div>
+              <h2 className="page-title">Telegram Notifications</h2>
+              <p className="page-subtitle">Remote monitoring and control via Telegram bot — works without opening the app.</p>
+            </div>
+            {!backendConnected && <div className="info-banner warning"><CloudOff size={13} />Backend offline — alert delivery paused</div>}
+
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              {/* Bot card */}
               <div className="zentra-card" style={{ flex: '1 1 280px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
-                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg,#229ED9,#0088CC)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 18px rgba(34,158,217,0.3)', flexShrink: 0 }}>
-                    <Send size={22} color="#fff" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'linear-gradient(135deg,#229ED9,#0088CC)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Send size={20} color="#fff" />
                   </div>
                   <div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--color-text-title)', fontFamily: "'Outfit', sans-serif" }}>@melmalebot</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-title)' }}>@melmalebot</div>
                     <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Plant Guardian Bot</div>
                   </div>
-                  <a href="https://t.me/melmalebot" target="_blank" rel="noreferrer" className="zentra-btn-secondary" style={{ marginLeft: 'auto', padding: '0 12px', height: '34px', fontSize: '12px' }}>
+                  <a href="https://t.me/melmalebot" target="_blank" rel="noreferrer" className="zentra-btn-secondary" style={{ marginLeft: 'auto', padding: '0 12px', height: 34, fontSize: 12, textDecoration: 'none' }}>
                     Open <ExternalLink size={11} />
                   </a>
                 </div>
-                <div style={{ backgroundColor: 'var(--color-primary-light)', borderRadius: 12, padding: '12px 14px', border: '1px solid var(--color-primary-medium)' }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase', marginBottom: 6 }}>How to connect</div>
-                  <ol style={{ fontSize: 12, color: 'var(--color-text-body)', paddingLeft: 16, margin: 0, lineHeight: 1.8 }}>
-                    <li>Open Telegram and search <strong>@melmalebot</strong></li>
-                    <li>Press <strong>Start</strong> to activate the bot</li>
-                    <li>Type <strong>/status</strong> to get a live greenhouse report</li>
+                <div className="info-banner success" style={{ fontSize: 11 }}>
+                  <Info size={12} />
+                  <ol style={{ paddingLeft: 14, margin: 0, lineHeight: 1.8 }}>
+                    <li>Search <strong>@melmalebot</strong> on Telegram</li>
+                    <li>Press <strong>Start</strong></li>
+                    <li>Type <strong>/status</strong> for a live report</li>
                   </ol>
                 </div>
               </div>
 
-              {/* Commands overview card */}
+              {/* Commands */}
               <div className="zentra-card" style={{ flex: '1 1 280px' }}>
-                <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--color-text-title)', fontFamily: "'Outfit', sans-serif" }}>Remote Commands</h3>
-                <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 10 }}>These work from your phone without opening the web app:</p>
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text-title)' }}>Remote Commands</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {[
-                    { cmd: '/status',    desc: 'Full greenhouse status report' },
-                    { cmd: '/temp',      desc: 'Current air temperature' },
-                    { cmd: '/humidity',  desc: 'Current humidity reading' },
-                    { cmd: '/soil',      desc: 'Soil moisture level' },
-                    { cmd: '/tasks',     desc: "Today's AI-generated task list" },
-                    { cmd: '/pump_on',   desc: 'Activate water pump remotely' },
-                    { cmd: '/pump_off',  desc: 'Deactivate water pump' },
-                    { cmd: '/fan_on',    desc: 'Activate ventilation fan' },
-                    { cmd: '/fan_off',   desc: 'Deactivate fan' },
-                    { cmd: '[photo]',    desc: 'Send leaf photo for disease scan' },
+                    { cmd: '/status',   desc: 'Full greenhouse status report' },
+                    { cmd: '/temp',     desc: 'Current air temperature' },
+                    { cmd: '/humidity', desc: 'Current humidity reading' },
+                    { cmd: '/soil',     desc: 'Soil moisture level' },
+                    { cmd: '/tasks',    desc: "Today's AI task list" },
+                    { cmd: '/pump_on',  desc: 'Activate water pump' },
+                    { cmd: '/pump_off', desc: 'Deactivate water pump' },
+                    { cmd: '/fan_on',   desc: 'Activate ventilation fan' },
+                    { cmd: '/fan_off',  desc: 'Deactivate fan' },
+                    { cmd: '[photo]',   desc: 'Send leaf photo for VLM disease scan' },
                   ].map(c => (
-                    <div key={c.cmd} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', backgroundColor: 'var(--color-bg-base)', borderRadius: 10, border: '1px solid var(--color-border)' }}>
-                      <code style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-primary)', backgroundColor: 'var(--color-primary-light)', padding: '2px 8px', borderRadius: 6, fontFamily: "'Courier New', monospace", whiteSpace: 'nowrap', flexShrink: 0 }}>{c.cmd}</code>
-                      <span style={{ fontSize: 11, color: 'var(--color-text-body)' }}>{c.desc}</span>
+                    <div key={c.cmd} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', backgroundColor: 'var(--color-bg-base)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
+                      <code style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-primary)', backgroundColor: 'var(--color-primary-light)', padding: '2px 7px', borderRadius: 4, fontFamily: 'monospace', flexShrink: 0 }}>{c.cmd}</code>
+                      <span style={{ fontSize: 12, color: 'var(--color-text-body)' }}>{c.desc}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Fired alert specifications */}
+              {/* Auto alerts */}
               <div className="zentra-card" style={{ flex: '1 1 280px' }}>
-                <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--color-text-title)', fontFamily: "'Outfit', sans-serif" }}>Auto Alerts</h3>
-                <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 10 }}>These are sent automatically by the backend — no commands needed:</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text-title)' }}>Auto Alerts</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {[
-                    { emoji: '⚠️', label: 'Threshold breached', desc: 'When temp/humidity/soil goes out of bounds' },
-                    { emoji: '💧', label: 'Pump activated/off', desc: 'When ActuatorControlAgent triggers the pump' },
-                    { emoji: '💨', label: 'Fan activated/off', desc: 'When fan is triggered by high temp or humidity' },
-                    { emoji: '🌞', label: 'Grow lights toggled', desc: 'When light level goes below minimum lux' },
-                    { emoji: '🏥', label: 'Disease detected', desc: 'When DiagnosticsAgent finds a disease in a leaf photo' },
-                    { emoji: '🔑', label: 'User login', desc: 'When someone logs into the dashboard' },
+                    { emoji: '⚠️', label: 'Threshold breach',  desc: 'When temp/humidity/soil goes out of bounds' },
+                    { emoji: '💧', label: 'Pump state change', desc: 'When ActuatorControlAgent triggers the pump' },
+                    { emoji: '💨', label: 'Fan state change',  desc: 'When fan is triggered by high temp or humidity' },
+                    { emoji: '🌞', label: 'Lights toggled',    desc: 'When light level drops below minimum lux' },
+                    { emoji: '🔬', label: 'Disease detected',  desc: 'When qwen3-vl:4b finds disease in a leaf photo' },
+                    { emoji: '🔑', label: 'User login',        desc: 'When someone logs into the dashboard' },
                   ].map((a, i) => (
                     <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                       <span style={{ fontSize: 16, flexShrink: 0 }}>{a.emoji}</span>
                       <div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-title)' }}>{a.label}</div>
-                        <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{a.desc}</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-title)' }}>{a.label}</div>
+                        <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 1 }}>{a.desc}</div>
                       </div>
                     </div>
                   ))}
@@ -714,151 +835,138 @@ export default function App() {
           </div>
         )}
 
-        {/* ══ SETTINGS PAGE ══ */}
+        {/* ══ SETTINGS ══ */}
         {activeTab === 'settings' && (
-          <div className="page-shell" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <h2 className="page-title" style={{ fontFamily: "'Outfit', sans-serif", fontSize: 24, fontWeight: 800, color: 'var(--color-text-title)' }}>
-              System Settings
-            </h2>
-            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+          <div className="page-shell">
+            <div>
+              <h2 className="page-title">Settings</h2>
+              <p className="page-subtitle">System configuration, connection status, and AI model assignments</p>
+            </div>
 
-              {/* Account Overview card */}
-              <div className="zentra-card" style={{ flex: '1 1 320px' }}>
-                <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--color-text-title)', fontFamily: "'Outfit', sans-serif" }}>Account</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Full Name</label>
-                  <input readOnly value={loggedInUser ? `${loggedInUser.first_name} ${loggedInUser.second_name}` : ''} className="zentra-input" />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Username</label>
-                  <input readOnly value={loggedInUser?.username || ''} className="zentra-input" />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Email</label>
-                  <input readOnly value={loggedInEmail} className="zentra-input" />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Telegram Bot</label>
-                  <a href="https://t.me/melmalebot" target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)', fontSize: 13, fontWeight: 700 }}>@melmalebot</a>
-                </div>
-                <button onClick={handleLogout} className="zentra-btn" style={{ backgroundColor: '#EF4444', backgroundImage: 'none', boxShadow: '0 4px 14px rgba(239,68,68,0.2)', marginTop: 8 }}>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              {/* Account */}
+              <div className="zentra-card" style={{ flex: '1 1 300px' }}>
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text-title)' }}>Account</h3>
+                {[
+                  { label: 'Full Name', val: loggedInUser ? `${loggedInUser.first_name} ${loggedInUser.second_name}` : '' },
+                  { label: 'Username',  val: loggedInUser?.username || '' },
+                  { label: 'Email',     val: loggedInEmail },
+                ].map(f => (
+                  <div key={f.label} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{f.label}</label>
+                    <input readOnly value={f.val} className="zentra-input" />
+                  </div>
+                ))}
+                <button onClick={handleLogout} className="zentra-btn" style={{ backgroundColor: 'var(--red-600)' }}>
                   <LogOut size={13} /> Sign Out
                 </button>
               </div>
 
-              {/* System Connection details */}
-              <div className="zentra-card" style={{ flex: '1 1 320px' }}>
-                <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--color-text-title)', fontFamily: "'Outfit', sans-serif" }}>System Connection Status</h3>
-
+              {/* System Status */}
+              <div className="zentra-card" style={{ flex: '1 1 300px' }}>
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text-title)' }}>System Status</h3>
                 {[
                   {
                     label: 'FastAPI Backend',
-                    status: backendConnected ? 'Connected ✓' : 'Offline ❌',
                     ok: backendConnected,
-                    note: backendConnected ? 'Serving on http://127.0.0.1:8000' : 'Run: uvicorn main:app --reload (from backend/app)',
+                    status: backendConnected ? 'Connected' : 'Offline',
+                    note: backendConnected ? 'http://127.0.0.1:8000' : 'Run: uvicorn app.main:app --reload',
                   },
                   {
                     label: 'Supabase Database',
-                    status: backendConnected ? (data.is_supabase_configured ? 'Connected ✓' : 'Offline ❌') : 'Offline ❌',
                     ok: backendConnected && data.is_supabase_configured,
-                    note: data.is_supabase_configured ? 'Successfully connected with Supabase credentials.' : 'Please configure SUPABASE_URL + SUPABASE_KEY in backend/.env.',
+                    status: backendConnected ? (data.is_supabase_configured ? 'Connected' : 'Not configured') : 'Offline',
+                    note: data.is_supabase_configured ? 'Database connected.' : 'Set SUPABASE_URL + SUPABASE_KEY in .env',
                   },
                   {
-                    label: 'Telegram Bot (@melmalebot)',
-                    status: backendConnected ? (data.is_telegram_configured ? (data.telegram_chat_id_set ? 'Connected ✓' : 'Token ✓ | Chat ID ⚠️ not set') : 'Offline ❌') : 'Offline ❌',
+                    label: 'Telegram Bot',
                     ok: backendConnected && data.is_telegram_configured && data.telegram_chat_id_set,
-                    note: !backendConnected ? 'Backend offline.' : (!data.is_telegram_configured ? 'Set TELEGRAM_BOT_TOKEN in backend/.env.' : (!data.telegram_chat_id_set ? 'Set TELEGRAM_CHAT_ID in backend/.env. Get it by messaging @userinfobot on Telegram.' : 'Real-time alert dispatching and remote commands are active.')),
+                    status: backendConnected ? (data.is_telegram_configured ? (data.telegram_chat_id_set ? 'Active' : 'Chat ID missing') : 'Not configured') : 'Offline',
+                    note: !data.is_telegram_configured ? 'Set TELEGRAM_BOT_TOKEN in .env' : (!data.telegram_chat_id_set ? 'Set TELEGRAM_CHAT_ID or send /start to bot' : 'Alert dispatching active.'),
                   },
                   {
-                    label: 'Local LLM (Ollama)',
-                    status: backendConnected ? (data.ollama_connected ? (data.active_model_installed ? 'Connected & Loaded ✓' : 'Connected (Model not pulled) ⚠️') : 'Not running ❌') : 'Offline ❌',
+                    label: 'Ollama (Local LLM)',
                     ok: backendConnected && data.ollama_connected && data.active_model_installed,
-                    note: !backendConnected ? 'Backend offline.' : (!data.ollama_connected ? 'Ollama is not running. Start Ollama on your PC to enable local agent inference.' : (data.active_model_installed ? `Successfully connected. Active model '${data.active_model}' is ready.` : `Ollama is running, but active model '${data.active_model}' is not pulled yet. Run: ollama pull ${data.active_model.replace('-4b', ':4b').replace('-1b', ':1b')}`)),
+                    status: backendConnected ? (data.ollama_connected ? (data.active_model_installed ? 'Connected' : 'Model not pulled') : 'Not running') : 'Offline',
+                    note: !data.ollama_connected ? 'Start Ollama on your PC.' : (data.active_model_installed ? `Model '${data.active_model}' ready.` : `Run: ollama pull ${data.active_model}`),
+                  },
+                  {
+                    label: 'Web Search (DuckDuckGo)',
+                    ok: data.search_enabled && backendConnected,
+                    status: data.search_enabled ? 'Enabled' : 'Disabled',
+                    note: data.search_enabled ? 'Agricultural web search active. No API key required.' : 'Set SEARCH_ENABLED=true in .env',
                   },
                 ].map(svc => (
-                  <div key={svc.label} style={{ padding: '10px 12px', backgroundColor: 'var(--color-bg-base)', borderRadius: 12, marginBottom: 8, border: '1px solid var(--color-border)' }}>
+                  <div key={svc.label} style={{ padding: '10px 12px', backgroundColor: 'var(--color-bg-base)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-title)' }}>{svc.label}</span>
-                      <span style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: svc.ok ? 'var(--color-success)' : (svc.status.includes('❌') ? 'var(--color-danger)' : 'var(--color-warning)'),
-                        backgroundColor: svc.ok ? 'var(--color-success-light)' : (svc.status.includes('❌') ? 'var(--color-danger-light)' : 'var(--color-warning-light)'),
-                        padding: '2px 8px',
-                        borderRadius: 20
-                      }}>
-                        {svc.status}
-                      </span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-title)' }}>{svc.label}</span>
+                      <span className={`status-badge ${svc.ok ? 'online' : svc.status.includes('missing') || svc.status.includes('not') ? 'warning' : 'offline'}`}>{svc.status}</span>
                     </div>
-                    <span style={{ fontSize: 10, color: 'var(--color-text-muted)', lineHeight: 1.4 }}>{svc.note}</span>
+                    <span style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.4 }}>{svc.note}</span>
                   </div>
                 ))}
 
-                {/* Auto-detected Telegram Chat ID */}
+                {/* Auto-detected chat ID */}
                 {backendConnected && data.last_seen_chat_id && !data.telegram_chat_id_set && (
-                  <div style={{ padding: '12px 14px', backgroundColor: 'var(--color-warning-light)', border: '1px solid var(--color-warning)30', borderRadius: 12, marginBottom: 12, marginTop: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                      <AlertTriangle size={14} color="var(--color-warning)" />
-                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-warning)' }}>Auto-detected Chat ID!</span>
+                  <div className="info-banner warning">
+                    <AlertTriangle size={13} style={{ flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>Telegram Chat ID detected: <code>{data.last_seen_chat_id}</code></div>
+                      <button onClick={async () => {
+                        try {
+                          const res = await fetch(`${API_BASE}/telegram/save_chat_id`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: data.last_seen_chat_id }) });
+                          if (res.ok) { alert('Chat ID saved!'); fetchStatus(); }
+                          else alert('Failed to save Chat ID.');
+                        } catch { alert('Connection error.'); }
+                      }} className="zentra-btn" style={{ height: 30, fontSize: 11 }}>
+                        <CheckCircle2 size={11} /> Apply to .env
+                      </button>
                     </div>
-                    <p style={{ fontSize: 11, color: 'var(--color-text-body)', margin: '0 0 8px 0', lineHeight: 1.4 }}>
-                      We detected a message from Telegram Chat ID: <strong style={{ fontFamily: 'monospace', fontSize: 12 }}>{data.last_seen_chat_id}</strong>. Click below to automatically save it.
-                    </p>
-                    <button onClick={async () => {
-                      try {
-                        const res = await fetch(`${API_BASE}/telegram/save_chat_id`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ chat_id: data.last_seen_chat_id })
-                        });
-                        if (res.ok) {
-                          alert('Telegram Chat ID saved successfully!');
-                          fetchStatus();
-                        } else {
-                          alert('Failed to save Telegram Chat ID.');
-                        }
-                      } catch {
-                        alert('Connection error.');
-                      }
-                    }} className="zentra-btn" style={{ height: '34px', fontSize: '11px', backgroundColor: 'var(--color-warning)', backgroundImage: 'none' }}>
-                      <CheckCircle2 size={12} /> Apply to .env & Reload
-                    </button>
-                  </div>
-                )}
-
-                {/* AI Configuration select */}
-                <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 12, marginTop: 4 }}>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Active AI Model (config only)</label>
-                  <div className="zentra-select-container" style={{ marginTop: 6 }}>
-                    <select value={data.active_model} onChange={async e => {
-                      const model = e.target.value;
-                      if (!backendConnected) return;
-                      try { await fetch(`${API_BASE}/model/select`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model }) }); fetchStatus(); } catch {}
-                    }} className="zentra-select">
-                      <option value="qwen3-vl-4b">Qwen 3 VL 4B — VLM (vision)</option>
-                      <option value="llama3.2-1b">Llama 3.2 1B — LLM (text)</option>
-                      <option value="gemma3-1b">Gemma 3 1B — LLM (text)</option>
-                    </select>
-                  </div>
-                  <p style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 6, lineHeight: 1.5 }}>
-                    To activate local LLM inference, run: <code style={{ backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)', padding: '1px 5px', borderRadius: 4 }}>ollama pull {data.active_model}</code>
-                  </p>
-                </div>
-
-                {/* Agent → Model Bindings specifications */}
-                {Object.entries(data.agent_bindings || {}).length > 0 && (
-                  <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 10, marginTop: 8 }}>
-                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Agent → Model Bindings</label>
-                    {Object.entries(data.agent_bindings).map(([agent, model]) => (
-                      <div key={agent} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--color-bg-base)' }}>
-                        <span style={{ fontSize: 12, color: 'var(--color-text-body)', fontWeight: 600 }}>{agent}</span>
-                        <span style={{ fontSize: 11, color: 'var(--color-primary)', fontWeight: 700, backgroundColor: 'var(--color-primary-light)', padding: '1px 8px', borderRadius: 6 }}>{model}</span>
-                      </div>
-                    ))}
                   </div>
                 )}
               </div>
 
+              {/* AI Model Bindings */}
+              <div className="zentra-card" style={{ flex: '1 1 300px' }}>
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text-title)' }}>AI Model Bindings</h3>
+                <p style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Each agent is assigned its best-fit Ollama model.</p>
+
+                {/* Available models */}
+                {Object.entries(data.models || {}).map(([key, m]) => (
+                  <div key={key} style={{ padding: '10px 12px', backgroundColor: 'var(--color-bg-base)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-title)' }}>{m.name || key}</span>
+                      <span style={{ fontSize: 10, color: m.is_vision_capable ? 'var(--color-primary)' : 'var(--color-text-muted)', backgroundColor: m.is_vision_capable ? 'var(--color-primary-light)' : 'var(--color-bg-card)', padding: '2px 7px', borderRadius: 20, border: '1px solid var(--color-border)', fontWeight: 600 }}>
+                        {m.is_vision_capable ? '👁 VLM' : '💬 LLM'}
+                      </span>
+                    </div>
+                    <code style={{ fontSize: 11, color: 'var(--color-text-muted)', backgroundColor: 'var(--color-bg-card)', padding: '1px 6px', borderRadius: 4 }}>{key}</code>
+                    <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 5, lineHeight: 1.4 }}>{m.description}</p>
+                  </div>
+                ))}
+
+                {/* Current bindings */}
+                {Object.entries(data.agent_bindings || {}).length > 0 && (
+                  <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 10 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Active Bindings</div>
+                    {Object.entries(data.agent_bindings).map(([agent, model]) => (
+                      <div key={agent} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--color-bg-base)' }}>
+                        <span style={{ fontSize: 12, color: 'var(--color-text-body)', fontWeight: 500, textTransform: 'capitalize' }}>{agent}</span>
+                        <code style={{ fontSize: 11, color: 'var(--color-primary)', backgroundColor: 'var(--color-primary-light)', padding: '2px 8px', borderRadius: 4 }}>{model}</code>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 10 }}>
+                  <div style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
+                    Pull models with:<br />
+                    <code style={{ color: 'var(--color-primary)' }}>ollama pull qwen3-vl:4b</code><br />
+                    <code style={{ color: 'var(--color-primary)' }}>ollama pull gemma3:1b</code><br />
+                    <code style={{ color: 'var(--color-primary)' }}>ollama pull llama3.2:1b</code>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}

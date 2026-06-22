@@ -1,39 +1,45 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, Sparkles, Activity, ShieldCheck, Bug, HelpCircle } from 'lucide-react';
+import {
+  UploadCloud, Leaf, Activity, ShieldCheck, Bug, AlertTriangle,
+  Droplet, Zap, RefreshCw, Eye, Calendar
+} from 'lucide-react';
+
+const CATEGORY_CONFIG = {
+  'Disease':           { color: '#dc2626', bg: '#fee2e2', label: '🦠 Disease',          borderColor: 'rgba(220,38,38,0.25)' },
+  'Pest':              { color: '#b45309', bg: '#fef3c7', label: '🐛 Pest Damage',       borderColor: 'rgba(180,83,9,0.25)' },
+  'Nutrient Deficiency': { color: '#0369a1', bg: '#e0f2fe', label: '🧪 Nutrient Deficiency', borderColor: 'rgba(3,105,161,0.25)' },
+  'Abiotic Stress':    { color: '#6b7280', bg: '#f3f4f6', label: '⚡ Abiotic Stress',   borderColor: 'rgba(107,114,128,0.25)' },
+  'Healthy':           { color: '#4a7c20', bg: '#f4fae9', label: '✅ Healthy',            borderColor: 'rgba(74,124,32,0.25)' },
+};
+
+const SEVERITY_CONFIG = {
+  'Critical': { color: '#dc2626', bg: '#fee2e2' },
+  'High':     { color: '#ea580c', bg: '#fff7ed' },
+  'Medium':   { color: '#d97706', bg: '#fef3c7' },
+  'Low':      { color: '#65a30d', bg: '#f7fee7' },
+  'None':     { color: '#4a7c20', bg: '#f4fae9' },
+};
 
 export default function Diagnostics({ onDiagnose, history }) {
-  const [dragActive, setDragActive] = useState(false);
+  const [dragActive, setDragActive]   = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
-  const [scanning, setScanning] = useState(false);
-  const [report, setReport] = useState(null);
-  const fileInputRef = useRef(null);
+  const [previewUrl, setPreviewUrl]   = useState(null);
+  const [scanning, setScanning]       = useState(false);
+  const [report, setReport]           = useState(null);
+  const fileInputRef                  = useRef(null);
 
   const handleDrag = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
+    e.preventDefault(); e.stopPropagation();
+    setDragActive(e.type === 'dragenter' || e.type === 'dragover');
   };
 
   const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      processFile(e.dataTransfer.files[0]);
-    }
+    e.preventDefault(); e.stopPropagation(); setDragActive(false);
+    if (e.dataTransfer.files?.[0]) processFile(e.dataTransfer.files[0]);
   };
 
   const handleChange = (e) => {
-    e.preventDefault();
-    if (e.target.files && e.target.files[0]) {
-      processFile(e.target.files[0]);
-    }
+    if (e.target.files?.[0]) processFile(e.target.files[0]);
   };
 
   const processFile = (file) => {
@@ -44,449 +50,211 @@ export default function Diagnostics({ onDiagnose, history }) {
 
   const triggerScan = async () => {
     if (!selectedFile) return;
-    
     setScanning(true);
-    
-    // Premium timing animation to mimic the AI Diagnostics Agent in progress
     setTimeout(async () => {
       try {
         const formData = new FormData();
-        formData.append("file", selectedFile);
-        
+        formData.append('file', selectedFile);
         const res = await onDiagnose(formData);
         setReport(res);
       } catch (err) {
-        console.error("Diagnosis error:", err);
+        console.error('Diagnosis error:', err);
       } finally {
         setScanning(false);
       }
-    }, 2400);
+    }, 1800);
   };
 
   const resetForm = () => {
-    setSelectedFile(null);
-    setPreviewUrl(null);
-    setReport(null);
-    setScanning(false);
+    setSelectedFile(null); setPreviewUrl(null);
+    setReport(null); setScanning(false);
   };
 
-  const getStatusBadge = (status) => {
-    if (status === 'Healthy') {
-      return { label: 'HEALTHY', bg: '#ECFDF5', border: '#A7F3D0', color: '#047857', icon: ShieldCheck };
-    }
-    return { label: 'DISEASE DETECTED', bg: '#FEF2F2', border: '#FCA5A5', color: '#B91C1C', icon: Bug };
-  };
+  const catCfg = report ? (CATEGORY_CONFIG[report.category] || CATEGORY_CONFIG['Disease']) : null;
+  const sevCfg = report ? (SEVERITY_CONFIG[report.severity] || SEVERITY_CONFIG['Medium']) : null;
+  const isHealthy = report?.status === 'Healthy';
 
   return (
-    <div style={styles.card}>
-      <div style={styles.header}>
-        <h3 style={styles.title}>Diagnostics Center (Vision Agent)</h3>
-        <span style={styles.subtitle}>Upload leaf photos to scan for plant diseases and pests</span>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-      <div style={styles.contentGrid}>
-        {/* Upload Column */}
-        <div style={styles.uploadCol}>
+      {/* Main panel: upload + results */}
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+
+        {/* Upload column */}
+        <div style={{ flex: '1 1 280px', minHeight: 280, display: 'flex' }}>
           {!previewUrl ? (
-            <div 
-              onDragEnter={handleDrag}
-              onDragOver={handleDrag}
-              onDragLeave={handleDrag}
-              onDrop={handleDrop}
+            <div
+              onDragEnter={handleDrag} onDragOver={handleDrag}
+              onDragLeave={handleDrag} onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
               style={{
-                ...styles.dropZone,
-                borderColor: dragActive ? 'var(--color-primary)' : 'var(--color-border)',
-                backgroundColor: dragActive ? 'var(--color-primary-light)' : 'var(--color-bg-card)'
-              }}
-            >
-              <input 
-                ref={fileInputRef}
-                type="file" 
-                onChange={handleChange}
-                style={styles.fileInput}
-                accept="image/*"
-              />
-              <div style={styles.dropWrapper}>
-                <div style={styles.uploadIconCircle}>
-                  <UploadCloud size={24} color="#7C3AED" />
+                width: '100%',
+                border: `2px dashed ${dragActive ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                borderRadius: 12,
+                cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                backgroundColor: dragActive ? 'var(--color-primary-light)' : 'var(--color-bg-card)',
+                transition: 'all 0.15s ease',
+                padding: 20,
+              }}>
+              <input ref={fileInputRef} type="file" onChange={handleChange} style={{ display: 'none' }} accept="image/*" />
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 10 }}>
+                <div style={{ width: 52, height: 52, borderRadius: '50%', backgroundColor: 'var(--color-primary-light)', border: '1px solid var(--color-primary-medium)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <UploadCloud size={22} color="var(--color-primary)" />
                 </div>
-                <h4 style={styles.dropText}>Drag & drop leaf photo here</h4>
-                <p style={styles.dropSubtext}>Supports JPG, PNG up to 10MB</p>
-                <button style={styles.selectBtn}>Browse File</button>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-title)', marginBottom: 4 }}>Drop leaf photo here</div>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>JPG, PNG — up to 10MB</div>
+                </div>
+                <button style={{ padding: '7px 16px', backgroundColor: 'var(--color-bg-base)', border: '1px solid var(--color-border)', borderRadius: 7, fontSize: 12, fontWeight: 600, color: 'var(--color-text-body)', cursor: 'pointer' }}>
+                  Browse File
+                </button>
               </div>
             </div>
           ) : (
-            <div style={styles.previewContainer}>
-              <img src={previewUrl} alt="Leaf Preview" style={styles.previewImage} />
-              
-              {/* Green active scanning laser effect */}
+            <div style={{ position: 'relative', width: '100%', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--color-border)', backgroundColor: '#000', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: 280 }}>
+              <img src={previewUrl} alt="Leaf preview" style={{ maxWidth: '100%', maxHeight: 280, objectFit: 'contain' }} />
+
+              {/* Laser scan line */}
               {scanning && (
-                <div style={styles.laserLine}></div>
+                <div style={{ position: 'absolute', left: 0, width: '100%', height: 2, backgroundColor: 'var(--color-primary)', boxShadow: '0 0 8px var(--color-primary)', animation: 'scanLaser 1.8s infinite ease-in-out', zIndex: 5 }} />
               )}
 
               {scanning && (
-                <div style={styles.scanningOverlay}>
-                  <Activity size={32} color="#7C3AED" style={styles.spinner} />
-                  <span style={styles.scanningText}>AI Vision Agent Scanning...</span>
+                <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                  <Activity size={28} color="var(--color-primary)" style={{ animation: 'spin 1.5s linear infinite' }} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>qwen3-vl:4b scanning…</span>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)' }}>Analyzing disease, pests & nutrient levels</span>
                 </div>
               )}
 
               {!scanning && !report && (
-                <div style={styles.previewActions}>
-                  <button onClick={triggerScan} style={styles.btnScan}>
-                    <Sparkles size={14} />
-                    <span>Run AI Diagnostics</span>
+                <div style={{ position: 'absolute', bottom: 12, display: 'flex', gap: 8, zIndex: 6 }}>
+                  <button onClick={triggerScan} style={{ display: 'flex', alignItems: 'center', gap: 6, backgroundColor: 'var(--color-primary)', border: 'none', borderRadius: 8, padding: '9px 16px', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                    <Eye size={13} /> Run Diagnostics
                   </button>
-                  <button onClick={resetForm} style={styles.btnCancel}>Cancel</button>
+                  <button onClick={resetForm} style={{ backgroundColor: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '9px 14px', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                    Remove
+                  </button>
                 </div>
               )}
 
               {report && (
-                <button onClick={resetForm} style={styles.btnReset}>Scan New Photo</button>
+                <button onClick={resetForm} style={{ position: 'absolute', bottom: 12, backgroundColor: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '9px 14px', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', zIndex: 6 }}>
+                  <RefreshCw size={12} style={{ display: 'inline', marginRight: 5 }} />New Scan
+                </button>
               )}
             </div>
           )}
         </div>
 
-        {/* Diagnostic Results Report Column */}
-        <div style={styles.reportCol}>
+        {/* Report column */}
+        <div style={{ flex: '1.2 1 300px', border: '1px solid var(--color-border)', borderRadius: 12, padding: 18, backgroundColor: 'var(--color-bg-card)', minHeight: 280, display: 'flex', flexDirection: 'column' }}>
           {report ? (
-            <div style={styles.reportWrapper}>
-              {/* Header result badge */}
-              {(() => {
-                const conf = getStatusBadge(report.status);
-                const Icon = conf.icon;
-                return (
-                  <div style={{
-                    ...styles.statusHeader,
-                    backgroundColor: conf.bg,
-                    borderColor: conf.border
-                  }}>
-                    <Icon size={18} color={conf.color} />
-                    <span style={{ ...styles.statusLabel, color: conf.color }}>
-                      {conf.label} ({report.confidence}% Conf.)
-                    </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+
+              {/* Status banner */}
+              <div style={{ padding: '10px 14px', borderRadius: 9, backgroundColor: catCfg.bg, border: `1px solid ${catCfg.borderColor}`, display: 'flex', alignItems: 'center', gap: 9 }}>
+                {isHealthy ? <ShieldCheck size={18} color={catCfg.color} /> : <Bug size={18} color={catCfg.color} />}
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: catCfg.color }}>{catCfg.label}</div>
+                  {report.confidence && <div style={{ fontSize: 11, color: catCfg.color, opacity: 0.7 }}>{report.confidence}% confidence</div>}
+                </div>
+                {report.severity && report.severity !== 'None' && (
+                  <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: sevCfg.color, backgroundColor: sevCfg.bg, padding: '3px 8px', borderRadius: 20 }}>
+                    {report.severity}
+                  </span>
+                )}
+              </div>
+
+              {/* Diagnosis name */}
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-text-title)', letterSpacing: '-0.01em' }}>{report.diagnosis}</div>
+                {report.affected_area_pct !== undefined && !isHealthy && (
+                  <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 3 }}>
+                    ~{report.affected_area_pct}% leaf area affected
+                    {report.recovery_days && <> · Est. recovery: {report.recovery_days} days</>}
                   </div>
-                );
-              })()}
+                )}
+              </div>
 
-              <h4 style={styles.reportTitle}>{report.diagnosis}</h4>
-              
-              <div style={styles.resultsList}>
-                <div style={styles.resultItem}>
-                  <span style={styles.resultLabel}>Detected Symptoms:</span>
-                  <p style={styles.resultDesc}>{report.symptoms}</p>
-                </div>
-                
-                <div style={styles.resultItem}>
-                  <span style={styles.resultLabel}>Urgent Action:</span>
-                  <p style={{ ...styles.resultDesc, color: '#B91C1C', fontWeight: '600' }}>
-                    {report.urgent_action}
-                  </p>
-                </div>
+              {/* Data rows */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 9, flex: 1 }}>
+                {[
+                  { label: 'Symptoms observed', val: report.symptoms, show: !!report.symptoms },
+                  { label: '⚡ Urgent action', val: report.urgent_action, urgent: true, show: !!report.urgent_action && !isHealthy },
+                  { label: '🌿 Organic treatment', val: report.organic_treatment, show: !!report.organic_treatment && !isHealthy },
+                  { label: '🧪 Chemical treatment', val: report.chemical_treatment, show: !!report.chemical_treatment && !isHealthy },
+                  { label: '🛡 Prevention', val: report.prevention, show: !!report.prevention },
+                ].filter(r => r.show).map((r, i) => (
+                  <div key={i} style={{ padding: '9px 11px', backgroundColor: r.urgent ? 'var(--color-danger-light)' : 'var(--color-bg-base)', borderRadius: 7, border: `1px solid ${r.urgent ? 'rgba(220,38,38,0.15)' : 'var(--color-border)'}` }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: r.urgent ? 'var(--color-danger)' : 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>{r.label}</div>
+                    <div style={{ fontSize: 12, color: r.urgent ? 'var(--color-danger)' : 'var(--color-text-body)', lineHeight: 1.5 }}>{r.val}</div>
+                  </div>
+                ))}
+              </div>
 
-                <div style={styles.resultItem}>
-                  <span style={styles.resultLabel}>Organic Remediation (Recommended):</span>
-                  <p style={styles.resultDesc}>{report.organic_treatment}</p>
-                </div>
-
-                <div style={styles.resultItem}>
-                  <span style={styles.resultLabel}>Chemical Treatment:</span>
-                  <p style={styles.resultDesc}>{report.chemical_treatment}</p>
-                </div>
+              {/* Meta */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--color-text-muted)', paddingTop: 6, borderTop: '1px solid var(--color-border)' }}>
+                <span>{report.filename} · {report.file_size_kb} KB</span>
+                <span>{report.processed_by_model || 'qwen3-vl:4b'}</span>
               </div>
             </div>
           ) : (
-            <div style={styles.emptyReport}>
-              <HelpCircle size={32} color="#94A3B8" />
-              <h4 style={styles.emptyReportTitle}>Awaiting Leaf Analysis</h4>
-              <p style={styles.emptyReportDesc}>
-                Upload or drag a photo of your crop leaf on the left, then trigger the Diagnostics Agent to analyze pathogens.
+            <div style={{ margin: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 10, maxWidth: 260 }}>
+              <Leaf size={28} color="var(--color-primary-medium)" />
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-body)' }}>Awaiting leaf photo</div>
+              <p style={{ fontSize: 12, color: 'var(--color-text-muted)', lineHeight: 1.5, margin: 0 }}>
+                Upload a plant leaf image. qwen3-vl:4b will analyze for disease, pests, nutrient deficiency, and stress.
               </p>
             </div>
           )}
         </div>
       </div>
+
+      {/* Diagnostics history */}
+      {history && history.length > 0 && (
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+            Recent Scans ({history.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {history.slice(0, 5).map((h, i) => {
+              const cfg = CATEGORY_CONFIG[h.category] || (h.status === 'Healthy' ? CATEGORY_CONFIG['Healthy'] : CATEGORY_CONFIG['Disease']);
+              const sev = SEVERITY_CONFIG[h.severity] || SEVERITY_CONFIG['Medium'];
+              return (
+                <div key={i} style={{ padding: '12px 14px', backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 7, backgroundColor: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {h.status === 'Healthy' ? <ShieldCheck size={16} color={cfg.color} /> : <Bug size={16} color={cfg.color} />}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-title)' }}>{h.diagnosis || 'Unknown'}</div>
+                      <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 1 }}>{h.filename} · {h.timestamp}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    {h.category && h.category !== 'Healthy' && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: cfg.color, backgroundColor: cfg.bg, padding: '2px 7px', borderRadius: 20 }}>{h.category}</span>
+                    )}
+                    {h.severity && h.severity !== 'None' && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: sev.color, backgroundColor: sev.bg, padding: '2px 7px', borderRadius: 20 }}>{h.severity}</span>
+                    )}
+                    <span style={{ fontSize: 10, fontWeight: 700, color: h.status === 'Healthy' ? 'var(--color-success)' : 'var(--color-danger)', backgroundColor: h.status === 'Healthy' ? 'var(--color-success-light)' : 'var(--color-danger-light)', padding: '2px 7px', borderRadius: 20 }}>
+                      {h.status}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-const styles = {
-  card: {
-    backgroundColor: 'var(--color-bg-card)',
-    border: '1px solid var(--color-border)',
-    borderRadius: '20px',
-    padding: '24px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.01)',
-    transition: 'background-color 0.2s, border 0.2s'
-  },
-  header: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-    marginBottom: '20px'
-  },
-  title: {
-    fontSize: '16px',
-    fontWeight: '700',
-    color: 'var(--color-text-title)',
-    fontFamily: "'Outfit', sans-serif",
-    transition: 'color 0.2s'
-  },
-  subtitle: {
-    fontSize: '11px',
-    color: 'var(--color-text-muted)',
-    fontWeight: '500',
-    transition: 'color 0.2s'
-  },
-  contentGrid: {
-    display: 'flex',
-    gap: '24px',
-    flexWrap: 'wrap'
-  },
-  uploadCol: {
-    flex: '1 1 300px',
-    minHeight: '260px',
-    display: 'flex'
-  },
-  reportCol: {
-    flex: '1.2 1 320px',
-    border: '1px solid var(--color-border)',
-    borderRadius: '16px',
-    padding: '20px',
-    backgroundColor: 'var(--color-bg-base)',
-    minHeight: '260px',
-    display: 'flex',
-    transition: 'background-color 0.2s, border 0.2s'
-  },
-  dropZone: {
-    width: '100%',
-    border: '2px dashed var(--color-border)',
-    borderRadius: '16px',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '20px',
-    transition: 'all 0.2s ease-in-out'
-  },
-  fileInput: {
-    display: 'none'
-  },
-  dropWrapper: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    textAlign: 'center',
-    gap: '10px'
-  },
-  uploadIconCircle: {
-    width: '52px',
-    height: '52px',
-    borderRadius: '50%',
-    backgroundColor: 'var(--color-primary-light)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: '6px',
-    boxShadow: '0 4px 10px rgba(124, 58, 237, 0.04)',
-    transition: 'background-color 0.2s'
-  },
-  dropText: {
-    fontSize: '14px',
-    fontWeight: '700',
-    color: 'var(--color-text-title)',
-    transition: 'color 0.2s'
-  },
-  dropSubtext: {
-    fontSize: '11px',
-    color: 'var(--color-text-muted)',
-    transition: 'color 0.2s'
-  },
-  selectBtn: {
-    backgroundColor: 'var(--color-bg-card)',
-    border: '1px solid var(--color-border)',
-    borderRadius: '8px',
-    padding: '8px 16px',
-    fontSize: '12px',
-    fontWeight: '600',
-    color: 'var(--color-text-body)',
-    cursor: 'pointer',
-    marginTop: '6px',
-    transition: 'all 0.2s'
-  },
-  previewContainer: {
-    position: 'relative',
-    width: '100%',
-    borderRadius: '16px',
-    overflow: 'hidden',
-    border: '1px solid var(--color-border)',
-    backgroundColor: '#000000',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '280px',
-    transition: 'border 0.2s'
-  },
-  previewImage: {
-    maxWidth: '100%',
-    maxHeight: '100%',
-    objectFit: 'contain'
-  },
-  scanningOverlay: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    left: 0,
-    top: 0,
-    backgroundColor: 'var(--color-bg-card)',
-    opacity: 0.95,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '12px',
-    transition: 'background-color 0.2s'
-  },
-  scanningText: {
-    fontSize: '13px',
-    fontWeight: '700',
-    color: 'var(--color-primary)',
-    transition: 'color 0.2s'
-  },
-  spinner: {
-    animation: 'spin 1.5s infinite linear'
-  },
-  laserLine: {
-    position: 'absolute',
-    left: 0,
-    width: '100%',
-    height: '3px',
-    backgroundColor: '#10B981',
-    boxShadow: '0 0 8px #10B981',
-    animation: 'scanLaser 2s infinite ease-in-out',
-    zIndex: 5
-  },
-  previewActions: {
-    position: 'absolute',
-    bottom: '16px',
-    display: 'flex',
-    gap: '8px',
-    zIndex: 6
-  },
-  btnScan: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    backgroundColor: 'var(--color-primary)',
-    border: 'none',
-    borderRadius: '10px',
-    padding: '10px 16px',
-    color: '#FFFFFF',
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    boxShadow: '0 4px 10px rgba(129, 140, 248, 0.3)',
-    transition: 'all 0.2s'
-  },
-  btnCancel: {
-    backgroundColor: 'var(--color-danger)',
-    border: 'none',
-    borderRadius: '10px',
-    padding: '10px 16px',
-    color: '#FFFFFF',
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'all 0.2s'
-  },
-  btnReset: {
-    position: 'absolute',
-    bottom: '16px',
-    backgroundColor: 'var(--color-text-body)',
-    border: 'none',
-    borderRadius: '10px',
-    padding: '10px 16px',
-    color: '#FFFFFF',
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    zIndex: 6,
-    transition: 'all 0.2s'
-  },
-  reportWrapper: {
-    width: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px'
-  },
-  statusHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '8px 12px',
-    border: '1px solid',
-    borderRadius: '10px',
-    width: 'fit-content'
-  },
-  statusLabel: {
-    fontSize: '11px',
-    fontWeight: '700',
-    letterSpacing: '0.5px'
-  },
-  reportTitle: {
-    fontSize: '16px',
-    fontWeight: '700',
-    color: 'var(--color-text-title)',
-    fontFamily: "'Outfit', sans-serif",
-    transition: 'color 0.2s'
-  },
-  resultsList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px',
-    marginTop: '6px'
-  },
-  resultItem: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2px'
-  },
-  resultLabel: {
-    fontSize: '10px',
-    fontWeight: '700',
-    color: 'var(--color-text-muted)',
-    textTransform: 'uppercase',
-    transition: 'color 0.2s'
-  },
-  resultDesc: {
-    fontSize: '12px',
-    color: 'var(--color-text-body)',
-    lineHeight: '1.4',
-    transition: 'color 0.2s'
-  },
-  emptyReport: {
-    margin: 'auto',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    textAlign: 'center',
-    gap: '10px',
-    maxWidth: '280px'
-  },
-  emptyReportTitle: {
-    fontSize: '14px',
-    fontWeight: '700',
-    color: 'var(--color-text-body)',
-    fontFamily: "'Outfit', sans-serif",
-    transition: 'color 0.2s'
-  },
-  emptyReportDesc: {
-    fontSize: '11px',
-    color: 'var(--color-text-muted)',
-    lineHeight: '1.4',
-    transition: 'color 0.2s'
-  }
-};
+// Inject scan laser animation if not in CSS
+const style = document.createElement('style');
+style.textContent = `@keyframes scanLaser { 0%{top:0%;} 50%{top:95%;} 100%{top:0%;} }`;
+document.head.appendChild(style);

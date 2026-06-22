@@ -28,8 +28,10 @@ IS_EMAIL_CONFIGURED = bool(SMTP_USER and SMTP_PASSWORD and SMTP_TO_EMAIL)
 IS_SUPABASE_CONFIGURED = bool(SUPABASE_URL and SUPABASE_KEY)
 IS_VERCEL_CONFIGURED = bool(VERCEL_TOKEN and VERCEL_PROJECT_ID)
 
-# Task-specific agent models loaded from .env
-VISION_MODEL = os.getenv("VISION_MODEL", "qwen3-vl-4b")
-EXPERT_MODEL = os.getenv("EXPERT_MODEL", "gemma3-1b")
-SCHEDULER_MODEL = os.getenv("SCHEDULER_MODEL", "llama3.2-1b")
+# Task-specific agent models loaded from .env (Ollama colon-format tags)
+VISION_MODEL = os.getenv("VISION_MODEL", "qwen3-vl:4b")
+EXPERT_MODEL = os.getenv("EXPERT_MODEL", "gemma3:1b")
+SCHEDULER_MODEL = os.getenv("SCHEDULER_MODEL", "llama3.2:1b")
 
+# Web Search Tool
+SEARCH_ENABLED = os.getenv("SEARCH_ENABLED", "true").lower() == "true"

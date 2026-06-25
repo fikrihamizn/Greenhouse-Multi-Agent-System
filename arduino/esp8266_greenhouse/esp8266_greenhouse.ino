@@ -18,8 +18,8 @@
 #include <WiFiClient.h>
 
 // ── Configuration ─────────────────────────────────────────────────────────────
-const char* ssid         = "YOUR_LAPTOP_HOTSPOT_NAME";
-const char* password     = "YOUR_LAPTOP_HOTSPOT_PASSWORD";
+const char* ssid         = "FREAKY";
+const char* password     = "anasbabi";
 
 const char* BACKEND_IP   = "192.168.137.1";  // Windows Mobile Hotspot fixed IP
 const int   BACKEND_PORT = 8000;
